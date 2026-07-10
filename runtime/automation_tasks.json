@@ -1,0 +1,269 @@
+{
+  "tasks": [
+    {
+      "task_id": "task-a3933b62",
+      "name": "Project-One-TestBattle",
+      "state": "stopped",
+      "project_id": "Project-One",
+      "execute_method": "HotFix.Test.GameAutomatedTester.AutomatedTesterStart.BatchStartTest",
+      "group_name": "TestBattle",
+      "interval_seconds": 10,
+      "max_runs": null,
+      "current_run_count": 4,
+      "battle_log_root": "D:\\Documents\\Git\\Project-One\\BattleServer\\bin\\Debug\\net9.0\\logs\\Battle",
+      "group_args": {
+        "LoginServer": "Game",
+        "GameServer": "ws://192.168.1.15:8080"
+      },
+      "instances": [
+        {
+          "name": "instance-1",
+          "project_path": null,
+          "args": {
+            "Account": "224",
+            "scene": "Assets/Scenes/Init.unity"
+          }
+        },
+        {
+          "name": "instance-2",
+          "project_path": null,
+          "args": {
+            "Account": "123456",
+            "scene": "Assets/Scenes/Init.unity"
+          }
+        }
+      ],
+      "runs": [
+        {
+          "run_id": "run-67870552",
+          "task_id": "task-a3933b62",
+          "group_id": "group-9f03be1d",
+          "group_name": "TestBattle",
+          "started_time": "2026-07-10T02:50:44.772994Z",
+          "finished_time": "2026-07-10T02:50:46.788289Z",
+          "archived_time": "2026-07-10T02:50:45.052653Z",
+          "state": "failed",
+          "total": 2,
+          "completed": 0,
+          "failed": 2,
+          "history_id": "group-9f03be1d-20260710-025045",
+          "history_missing": false,
+          "history_summary": {
+            "history_id": "group-9f03be1d-20260710-025045",
+            "group_id": "group-9f03be1d",
+            "group_name": "TestBattle",
+            "total": 2,
+            "completed": 0,
+            "failed": 2,
+            "state": "failed",
+            "archived_time": "2026-07-10T02:50:45.052653+00:00",
+            "report_same": null,
+            "battle_match": null
+          },
+          "report_same": null,
+          "report_summary": null,
+          "battle_match": null,
+          "error": null
+        },
+        {
+          "run_id": "run-3d9dfe9a",
+          "task_id": "task-a3933b62",
+          "group_id": "group-d303db16",
+          "group_name": "TestBattle",
+          "started_time": "2026-07-10T02:50:56.824531Z",
+          "finished_time": null,
+          "archived_time": null,
+          "state": "running",
+          "total": 2,
+          "completed": 0,
+          "failed": 0,
+          "history_id": null,
+          "history_missing": false,
+          "history_summary": null,
+          "report_same": null,
+          "report_summary": null,
+          "battle_match": null,
+          "error": null
+        },
+        {
+          "run_id": "run-366efdcc",
+          "task_id": "task-a3933b62",
+          "group_id": "group-8315f958",
+          "group_name": "TestBattle",
+          "started_time": "2026-07-10T10:56:04.670969",
+          "finished_time": "2026-07-10T11:05:28.115538",
+          "archived_time": "2026-07-10T11:05:28.107592",
+          "state": "completed",
+          "total": 2,
+          "completed": 2,
+          "failed": 0,
+          "history_id": "group-8315f958-20260710-110526",
+          "history_missing": false,
+          "history_summary": {
+            "history_id": "group-8315f958-20260710-110526",
+            "group_id": "group-8315f958",
+            "group_name": "TestBattle",
+            "total": 2,
+            "completed": 2,
+            "failed": 0,
+            "state": "completed",
+            "archived_time": "2026-07-10T11:05:28.107592",
+            "report_same": true,
+            "battle_match": false
+          },
+          "report_same": true,
+          "report_summary": {
+            "baseline_instance_id": "unity-d7df3577",
+            "same": true,
+            "items": [
+              {
+                "instance_id": "unity-d7df3577",
+                "launch_name": "instance-1",
+                "sha256": "b2d2e00684782fcade952392bf0d710bf0ee8773fd1b5fbb4fff609b469ddd41",
+                "same_as_baseline": true,
+                "report_length": 2867019
+              },
+              {
+                "instance_id": "unity-ca0a63a3",
+                "launch_name": "instance-2",
+                "sha256": "b2d2e00684782fcade952392bf0d710bf0ee8773fd1b5fbb4fff609b469ddd41",
+                "same_as_baseline": true,
+                "report_length": 2867019
+              }
+            ]
+          },
+          "battle_match": false,
+          "error": null
+        },
+        {
+          "run_id": "run-7d29965a",
+          "task_id": "task-a3933b62",
+          "group_id": "group-6b3fc130",
+          "group_name": "TestBattle",
+          "started_time": "2026-07-10T11:05:38.172903",
+          "finished_time": null,
+          "archived_time": null,
+          "state": "running",
+          "total": 2,
+          "completed": 0,
+          "failed": 0,
+          "history_id": null,
+          "history_missing": false,
+          "history_summary": null,
+          "report_same": null,
+          "report_summary": null,
+          "battle_match": null,
+          "error": null
+        },
+        {
+          "run_id": "run-7a48f08f",
+          "task_id": "task-a3933b62",
+          "group_id": "group-af598c48",
+          "group_name": "TestBattle",
+          "started_time": "2026-07-10T11:28:00.661197",
+          "finished_time": "2026-07-10T11:28:42.822102",
+          "archived_time": "2026-07-10T11:28:42.723238",
+          "state": "failed",
+          "total": 2,
+          "completed": 0,
+          "failed": 2,
+          "history_id": "group-af598c48-20260710-112842",
+          "history_missing": false,
+          "history_summary": {
+            "history_id": "group-af598c48-20260710-112842",
+            "group_id": "group-af598c48",
+            "group_name": "TestBattle",
+            "total": 2,
+            "completed": 0,
+            "failed": 2,
+            "state": "failed",
+            "archived_time": "2026-07-10T11:28:42.723238",
+            "report_same": null,
+            "battle_match": null
+          },
+          "report_same": null,
+          "report_summary": null,
+          "battle_match": null,
+          "error": null
+        },
+        {
+          "run_id": "run-490dac6d",
+          "task_id": "task-a3933b62",
+          "group_id": "group-a1f8e4e3",
+          "group_name": "TestBattle",
+          "started_time": "2026-07-10T11:28:52.874932",
+          "finished_time": null,
+          "archived_time": null,
+          "state": "running",
+          "total": 2,
+          "completed": 0,
+          "failed": 0,
+          "history_id": null,
+          "history_missing": false,
+          "history_summary": null,
+          "report_same": null,
+          "report_summary": null,
+          "battle_match": null,
+          "error": null
+        },
+        {
+          "run_id": "run-6e7e0f92",
+          "task_id": "task-a3933b62",
+          "group_id": "group-a5834416",
+          "group_name": "TestBattle",
+          "started_time": "2026-07-10T11:33:37.349182",
+          "finished_time": "2026-07-10T11:34:27.541209",
+          "archived_time": "2026-07-10T11:34:26.290175",
+          "state": "failed",
+          "total": 2,
+          "completed": 0,
+          "failed": 2,
+          "history_id": "group-a5834416-20260710-113426",
+          "history_missing": false,
+          "history_summary": {
+            "history_id": "group-a5834416-20260710-113426",
+            "group_id": "group-a5834416",
+            "group_name": "TestBattle",
+            "total": 2,
+            "completed": 0,
+            "failed": 2,
+            "state": "failed",
+            "archived_time": "2026-07-10T11:34:26.290175",
+            "report_same": null,
+            "battle_match": null
+          },
+          "report_same": null,
+          "report_summary": null,
+          "battle_match": null,
+          "error": null
+        },
+        {
+          "run_id": "run-d4dd09e4",
+          "task_id": "task-a3933b62",
+          "group_id": "group-b7824cba",
+          "group_name": "TestBattle",
+          "started_time": "2026-07-10T11:34:37.597116",
+          "finished_time": null,
+          "archived_time": null,
+          "state": "running",
+          "total": 2,
+          "completed": 0,
+          "failed": 0,
+          "history_id": null,
+          "history_missing": false,
+          "history_summary": null,
+          "report_same": null,
+          "report_summary": null,
+          "battle_match": null,
+          "error": null
+        }
+      ],
+      "last_group_id": "group-b7824cba",
+      "last_error": null,
+      "last_run_time": "2026-07-10T11:34:37.597116",
+      "next_run_time": null,
+      "created_time": "2026-07-10T02:50:39.352675Z",
+      "updated_time": "2026-07-10T11:35:08.638272"
+    }
+  ]
+}

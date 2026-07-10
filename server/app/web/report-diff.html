@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f6f7fb" media="(prefers-color-scheme:light)">
+<meta name="theme-color" content="#080b12" media="(prefers-color-scheme:dark)">
+<title>Report Diff</title>
+<style>
+:root {
+  --color-bg: #f6f7fb;
+  --color-surface: #ffffff;
+  --color-text: #111827;
+  --color-text-secondary: #64748b;
+  --color-text-muted: #94a3b8;
+  --color-border: #e2e8f0;
+  --color-primary: #0f766e;
+  --color-primary-soft: #ccfbf1;
+  --color-diff-removed-bg: #fee2e2;
+  --color-diff-removed-text: #991b1b;
+  --color-diff-removed-gutter: #fca5a5;
+  --color-diff-added-bg: #dcfce7;
+  --color-diff-added-text: #166534;
+  --color-diff-added-gutter: #86efac;
+  --color-diff-empty-bg: #f1f5f9;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #080b12;
+    --color-surface: #0f172a;
+    --color-text: #e5e7eb;
+    --color-text-secondary: #94a3b8;
+    --color-text-muted: #64748b;
+    --color-border: #1f2937;
+    --color-primary: #2dd4bf;
+    --color-primary-soft: rgba(45,212,191,0.14);
+    --color-diff-removed-bg: #450a0a;
+    --color-diff-removed-text: #fca5a5;
+    --color-diff-removed-gutter: #991b1b;
+    --color-diff-added-bg: #064e3b;
+    --color-diff-added-text: #86efac;
+    --color-diff-added-gutter: #166534;
+    --color-diff-empty-bg: #1e293b;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: "SF Mono", Consolas, "Liberation Mono", monospace;
+  background: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.6;
+  font-size: 13px;
+}
+.diff-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  font-family: system-ui, -apple-system, sans-serif;
+  flex-wrap: wrap;
+}
+.diff-header h1 { font-size: 16px; font-weight: 800; }
+.diff-header .diff-status {
+  font-size: 13px; padding: 4px 10px; border-radius: 999px; font-weight: 700;
+}
+.diff-status.same { background: #dcfce7; color: #166534; }
+.diff-status.different { background: #fee2e2; color: #991b1b; }
+
+.diff-labels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-bottom: 1px solid var(--color-border);
+}
+.diff-label {
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 800;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--color-surface);
+  border-bottom: 2px solid transparent;
+}
+.diff-label:first-child {
+  border-right: 1px solid var(--color-border);
+  border-bottom-color: var(--color-diff-removed-gutter);
+}
+.diff-label:last-child {
+  border-bottom-color: var(--color-diff-added-gutter);
+}
+
+.diff-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.diff-table td {
+  padding: 2px 10px;
+  vertical-align: top;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  line-height: 1.55;
+}
+.gutter {
+  width: 52px;
+  text-align: right;
+  padding: 2px 8px !important;
+  color: var(--color-text-muted);
+  user-select: none;
+  font-size: 11px;
+}
+.line-left, .line-right { width: 50%; }
+.line-left { border-right: 1px solid var(--color-border); }
+tr.same td { background: transparent; }
+tr.same td.gutter { color: var(--color-text-muted); }
+tr.removed td { background: var(--color-diff-removed-bg); }
+tr.removed td.gutter { background: var(--color-diff-removed-gutter); color: var(--color-diff-removed-text); }
+tr.removed td.line-left { color: var(--color-diff-removed-text); }
+tr.removed td.line-right { background: var(--color-diff-empty-bg); }
+tr.added td { background: var(--color-diff-added-bg); }
+tr.added td.gutter { background: var(--color-diff-added-gutter); color: var(--color-diff-added-text); }
+tr.added td.line-right { color: var(--color-diff-added-text); }
+tr.added td.line-left { background: var(--color-diff-empty-bg); }
+
+.diff-summary {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  font-family: system-ui, -apple-system, sans-serif;
+  flex-wrap: wrap;
+}
+.diff-summary .removed { color: var(--color-diff-removed-text); font-weight: 800; }
+.diff-summary .added { color: var(--color-diff-added-text); font-weight: 800; }
+.diff-summary .unchanged { color: var(--color-text-muted); }
+
+.mode-bar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 18px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 12px;
+}
+.mode-bar .btn-mode {
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+}
+.mode-bar .btn-mode.active {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
+}
+.mode-bar .btn-mode:hover:not(.active) { background: var(--color-border); }
+
+.raw-panel {
+  padding: 16px 18px;
+}
+.raw-panel h3 {
+  font-size: 14px;
+  font-family: system-ui, -apple-system, sans-serif;
+  margin-bottom: 10px;
+}
+.raw-panel .raw-content {
+  max-height: 60vh;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.selector-bar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 18px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+.selector-bar label {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.selector-bar select {
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.selector-bar select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 50vh;
+  color: var(--color-text-muted);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+}
+.error {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 50vh;
+  color: #991b1b;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+}
+.no-diff {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 50vh;
+  color: var(--color-text-muted);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+}
+</style>
+</head>
+<body>
+<div id="root">
+  <div class="loading">Loading diff...</div>
+</div>
+
+<script>
+function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+// ── Cleaning logic (port of the Python script) ──
+
+/** Check if a line should be skipped (noise). */
+function shouldSkipLine(rawLine) {
+  if (/SingleMessageQueueSys ReadFrame:\s*\d+/.test(rawLine)) return true;
+  return false;
+}
+
+/** Remove common namespace prefixes. */
+function cleanCommonPrefixes(line) {
+  return line
+    .replace(/ServerGamePlayModules\./g, '')
+    .replace(/UnityHotfix\./g, '')
+    .replace(/GameplayModules\./g, '');
+}
+
+/** Format numbers to 4 decimal places. */
+function formatNumbersStrict(text) {
+  return text.replace(/\b-?\d+(?:\.\d+)?\b/g, function(m) {
+    var val = parseFloat(m);
+    if (!isNaN(val)) {
+      if (val === 0) val = 0;
+      return val.toFixed(4);
+    }
+    return m;
+  });
+}
+
+/**
+ * Clean a single line.
+ * @param {string} line - raw line
+ * @param {boolean} cleanId - whether to normalize dynamic IDs
+ * @param {object} idMap - shared ID mapping for this file
+ * @returns {string} cleaned line
+ */
+function getCleanContent(line, cleanId, idMap) {
+  line = line.trim();
+  if (!line) return '';
+
+  // 1. Remove [BattleLog_xxx] header
+  line = line.replace(/^\[BattleLog_[^\]]+\]\s*/, '');
+  // Remove [Frame:] prefix
+  if (/\[Frame:\]/.test(line)) {
+    line = line.split('[Frame:]')[1] || '';
+  } else {
+    // Remove timestamp + log level prefix like "2026-07-08 12:34:56 [INFO] "
+    line = line.replace(/^\d{4}-\d{2}-\d{2}.*?\[[A-Z]+\]\s*/, '');
+  }
+
+  // 2. Remove namespace prefixes
+  line = cleanCommonPrefixes(line);
+
+  // 3. Dynamic ID handling
+  if (cleanId) {
+    line = line.replace(/Identify:(\d+)/g, function(match, originalId) {
+      if (!(originalId in idMap)) {
+        idMap[originalId] = Object.keys(idMap).length + 1;
+      }
+      return 'Identify:__ID_' + idMap[originalId] + '__';
+    });
+  }
+  line = line.replace(/Version:\d+/g, 'Version:ID');
+
+  // 4. Format numbers
+  line = formatNumbersStrict(line);
+
+  // 5. Restore ID format
+  if (cleanId) {
+    line = line.replace(/Identify:__ID_(\d+)__/g, 'Identify:$1');
+  }
+
+  return line.trim();
+}
+
+/**
+ * Process raw report text through the cleaning pipeline.
+ * Returns an object { cleaned, raw } with line arrays.
+ */
+function processReport(reportText, cleanId) {
+  var idMap = {};
+  var rawLines = [];
+  var cleanedLines = [];
+  var lines = reportText.split('\n');
+  for (var i = 1; i < lines.length; i++) {
+    var raw = lines[i];
+    if (shouldSkipLine(raw)) continue;
+    var clean = getCleanContent(raw, cleanId, idMap);
+    rawLines.push(raw);
+    cleanedLines.push(clean);
+  }
+  return { raw: rawLines, cleaned: cleanedLines };
+}
+
+// ── Diff computation ──
+
+function computeDiff(linesBase, linesCmp) {
+  var maxLen = Math.max(linesBase.length, linesCmp.length);
+  var result = [];
+  for (var i = 0; i < maxLen; i++) {
+    var baseLine = i < linesBase.length ? linesBase[i] : null;
+    var cmpLine = i < linesCmp.length ? linesCmp[i] : null;
+    if (baseLine === cmpLine) {
+      result.push({ type: 'same', leftNum: i + 1, rightNum: i + 1, left: baseLine, right: cmpLine });
+    } else if (baseLine !== null && cmpLine === null) {
+      result.push({ type: 'removed', leftNum: i + 1, rightNum: null, left: baseLine, right: '' });
+    } else if (baseLine === null && cmpLine !== null) {
+      result.push({ type: 'added', leftNum: null, rightNum: i + 1, left: '', right: cmpLine });
+    } else {
+      result.push({ type: 'removed', leftNum: i + 1, rightNum: null, left: baseLine, right: '' });
+      result.push({ type: 'added', leftNum: null, rightNum: i + 1, left: '', right: cmpLine });
+    }
+  }
+  return result;
+}
+
+// ── Render ──
+
+var _baseText = '', _cmpText = '';
+var _baseLabel = '', _cmpLabel = '';
+var _cleanId = true;
+var _instanceIds = [];
+var _instanceLabels = {};
+var _allReports = {};
+var _currentLeftIdx = 0;
+var _currentRightIdx = 1;
+
+function renderDiffTable(linesA, linesB, labelA, labelB, activeMode) {
+  activeMode = activeMode || 'cleaned';
+  var diff = computeDiff(linesA, linesB);
+
+  var addedCount = 0, removedCount = 0, sameCount = 0;
+  for (var i = 0; i < diff.length; i++) {
+    if (diff[i].type === 'same') sameCount++;
+    else if (diff[i].type === 'removed') removedCount++;
+    else if (diff[i].type === 'added') addedCount++;
+  }
+
+  var isSame = addedCount === 0 && removedCount === 0;
+
+  var tableRows = '';
+  for (var i = 0; i < diff.length; i++) {
+    var row = diff[i];
+    tableRows += '<tr class="' + row.type + '">' +
+      '<td class="gutter">' + (row.leftNum !== null ? row.leftNum : '') + '</td>' +
+      '<td class="line-left">' + (row.left !== null ? escapeHtml(row.left) : '') + '</td>' +
+      '<td class="gutter">' + (row.rightNum !== null ? row.rightNum : '') + '</td>' +
+      '<td class="line-right">' + (row.right !== null ? escapeHtml(row.right) : '') + '</td>' +
+      '</tr>';
+  }
+
+  var root = document.getElementById('root');
+  var selectorHtml = buildSelectorBar();
+  root.innerHTML = '<div class="diff-header">' +
+    '<div>' +
+      '<h1>Report Diff</h1>' +
+      '<div class="diff-summary">' +
+        '<span class="' + (isSame ? 'same' : 'different') + ' diff-status">' + (isSame ? '完全相同' : '存在差异') + '</span>' +
+        '<span class="unchanged">' + sameCount + ' 行相同</span>' +
+        (removedCount > 0 ? '<span class="removed">-' + removedCount + '</span>' : '') +
+        (addedCount > 0 ? '<span class="added">+' + addedCount + '</span>' : '') +
+      '</div>' +
+    '</div>' +
+  '</div>' +
+  selectorHtml +
+  '<div class="mode-bar">' +
+    '<span style="color:var(--color-text-muted)">对比模式:</span>' +
+    '<button class="btn-mode" id="mode-cleaned" onclick="switchMode(\'cleaned\')">清洗后</button>' +
+    '<button class="btn-mode" id="mode-raw" onclick="switchMode(\'raw\')">原始</button>' +
+    '<span style="margin:0 8px;color:var(--color-border)">|</span>' +
+    '<label style="display:flex;align-items:center;gap:4px;cursor:pointer">' +
+      '<input type="checkbox" id="chk-clean-id" ' + (_cleanId ? 'checked ' : '') + 'onchange="toggleCleanId()">' +
+      '<span>归一化ID</span>' +
+    '</label>' +
+    '<span style="margin:0 8px;color:var(--color-border)">|</span>' +
+    '<button class="btn-mode" id="mode-raw-view" onclick="switchMode(\'raw-view\')">查看原文件</button>' +
+  '</div>' +
+  '<div class="diff-labels">' +
+    '<div class="diff-label">' + escapeHtml(labelA) + '</div>' +
+    '<div class="diff-label">' + escapeHtml(labelB) + '</div>' +
+  '</div>' +
+  '<div id="diff-body">' +
+    '<table class="diff-table">' + tableRows + '</table>' +
+  '</div>';
+
+  document.getElementById('mode-' + activeMode).classList.add('active');
+}
+
+function renderRawView() {
+  var root = document.getElementById('root');
+  var header = root.querySelector('.diff-header');
+  var modeBar = root.querySelector('.mode-bar');
+  var labels = root.querySelector('.diff-labels');
+
+  root.innerHTML = '<div class="diff-header">' +
+    '<div><h1>Report Diff — 原文件内容</h1></div>' +
+  '</div>' +
+  '<div class="mode-bar">' +
+    '<button class="btn-mode" onclick="switchMode(\'cleaned\')">返回对比</button>' +
+  '</div>' +
+  '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--color-border)">' +
+    '<div class="raw-panel">' +
+      '<h3>' + escapeHtml(_baseLabel) + '</h3>' +
+      '<div class="raw-content"><code>' + escapeHtml(_baseText) + '</code></div>' +
+    '</div>' +
+    '<div class="raw-panel">' +
+      '<h3>' + escapeHtml(_cmpLabel) + '</h3>' +
+      '<div class="raw-content"><code>' + escapeHtml(_cmpText) + '</code></div>' +
+    '</div>' +
+  '</div>';
+}
+
+var _currentMode = 'cleaned';
+var _processedBase = null;
+var _processedCmp = null;
+
+function buildSelectorBar() {
+  if (_instanceIds.length < 2) return '';
+  var options = '';
+  for (var i = 0; i < _instanceIds.length; i++) {
+    var id = _instanceIds[i];
+    var name = _instanceLabels[id] || id;
+    options += '<option value="' + i + '">' + escapeHtml(name) + '</option>';
+  }
+  return '<div class="selector-bar">' +
+    '<label>左侧: <select id="sel-left" onchange="onSelectorChange()">' +
+      options.replace('value="' + _currentLeftIdx + '"', 'value="' + _currentLeftIdx + '" selected') +
+    '</select></label>' +
+    '<label>右侧: <select id="sel-right" onchange="onSelectorChange()">' +
+      options.replace('value="' + _currentRightIdx + '"', 'value="' + _currentRightIdx + '" selected') +
+    '</select></label>' +
+    '<span style="color:var(--color-text-muted);font-size:11px">选择不同实例进行对比</span>' +
+  '</div>';
+}
+
+function onSelectorChange() {
+  var leftIdx = parseInt(document.getElementById('sel-left').value);
+  var rightIdx = parseInt(document.getElementById('sel-right').value);
+  if (leftIdx === _currentLeftIdx && rightIdx === _currentRightIdx) return;
+  if (leftIdx === rightIdx) {
+    // revert
+    document.getElementById('sel-left').value = _currentLeftIdx;
+    document.getElementById('sel-right').value = _currentRightIdx;
+    return;
+  }
+  _currentLeftIdx = leftIdx;
+  _currentRightIdx = rightIdx;
+  var leftId = _instanceIds[leftIdx];
+  var rightId = _instanceIds[rightIdx];
+  _baseText = _allReports[leftId] || '';
+  _cmpText = _allReports[rightId] || '';
+  _baseLabel = _instanceLabels[leftId] || leftId;
+  _cmpLabel = _instanceLabels[rightId] || rightId;
+  _processedBase = processReport(_baseText, _cleanId);
+  _processedCmp = processReport(_cmpText, _cleanId);
+  switchMode(_currentMode === 'raw-view' ? 'cleaned' : _currentMode);
+}
+
+function switchMode(mode) {
+  _currentMode = mode;
+  if (mode === 'raw-view') {
+    renderRawView();
+    return;
+  }
+
+  var linesA, linesB;
+  if (mode === 'cleaned') {
+    linesA = _processedBase.cleaned;
+    linesB = _processedCmp.cleaned;
+  } else {
+    // Switch to raw mode: auto-uncheck normalize ID since it's not applicable
+    linesA = _processedBase.raw;
+    linesB = _processedCmp.raw;
+    var chk = document.getElementById('chk-clean-id');
+    if (chk) { chk.checked = false; _cleanId = false; }
+  }
+  renderDiffTable(linesA, linesB, _baseLabel, _cmpLabel, mode);
+  document.getElementById('mode-' + mode).classList.add('active');
+}
+
+function toggleCleanId() {
+  _cleanId = document.getElementById('chk-clean-id').checked;
+  _processedBase = processReport(_baseText, _cleanId);
+  _processedCmp = processReport(_cmpText, _cleanId);
+
+  // 归一化ID只作用于清洗后内容；如果当前在原始模式，点击后切回清洗后对比
+  if (_currentMode === 'raw') {
+    switchMode('cleaned');
+  } else {
+    switchMode(_currentMode);
+  }
+}
+
+// ── Load ──
+
+async function loadDiff() {
+  var params = new URLSearchParams(window.location.search);
+  var historyId = params.get('history_id');
+  var instancesParam = params.get('instances');
+  var leftIdx = parseInt(params.get('left')) || 0;
+  var rightIdx = parseInt(params.get('right')) || 1;
+
+  if (!historyId || !instancesParam) {
+    document.getElementById('root').innerHTML = '<div class="error">缺少参数: 需要 history_id, instances</div>';
+    return;
+  }
+
+  _instanceIds = instancesParam.split(',');
+  if (_instanceIds.length < 2) {
+    document.getElementById('root').innerHTML = '<div class="error">至少需要 2 个实例</div>';
+    return;
+  }
+  _currentLeftIdx = Math.min(leftIdx, _instanceIds.length - 1);
+  _currentRightIdx = Math.min(rightIdx, _instanceIds.length - 1);
+  if (_currentLeftIdx === _currentRightIdx) {
+    _currentRightIdx = _currentLeftIdx === 0 ? 1 : 0;
+  }
+
+  try {
+    var res = await fetch('/api/unity/history/groups/' + historyId);
+    if (!res.ok) throw new Error(await res.text());
+    var data = await res.json();
+    _allReports = data.instance_reports || {};
+
+    // build instance labels
+    _instanceLabels = {};
+    for (var i = 0; i < _instanceIds.length; i++) {
+      var id = _instanceIds[i];
+      var inst = data.instances && data.instances.find(function(inst) { return inst.original_id === id; });
+      _instanceLabels[id] = (inst && inst.original_id) || id;
+    }
+
+    // Add battle log as a selectable option if available
+    if (_allReports['__battle_log__']) {
+      _instanceIds.push('__battle_log__');
+      _instanceLabels['__battle_log__'] = '战斗服日志';
+    }
+
+    var baselineId = _instanceIds[_currentLeftIdx];
+    var compareId = _instanceIds[_currentRightIdx];
+
+    _baseText = _allReports[baselineId] || '';
+    _cmpText = _allReports[compareId] || '';
+
+    _baseLabel = _instanceLabels[baselineId] || baselineId;
+    _cmpLabel = _instanceLabels[compareId] || compareId;
+
+    _processedBase = processReport(_baseText, _cleanId);
+    _processedCmp = processReport(_cmpText, _cleanId);
+
+    renderDiffTable(_processedBase.cleaned, _processedCmp.cleaned, _baseLabel, _cmpLabel, 'cleaned');
+    document.getElementById('mode-cleaned').classList.add('active');
+  } catch (e) {
+    document.getElementById('root').innerHTML = '<div class="error">加载失败: ' + escapeHtml(e.message) + '</div>';
+  }
+}
+
+loadDiff();
+</script>
+</body>
+</html>

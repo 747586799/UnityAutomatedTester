@@ -1,0 +1,9 @@
+[project]
+name = "unity-automated-tester-agent"
+version = "0.1.0"
+description = "Agent for launching local Unity test instances."
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.7.0",
+    "websockets>=12.0",
+]

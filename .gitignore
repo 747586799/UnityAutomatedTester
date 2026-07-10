@@ -1,0 +1,10 @@
+runtime/instances/*
+!runtime/instances/.gitkeep
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+.env
+build/
+*.spec
+dist/

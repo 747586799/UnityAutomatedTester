@@ -1,0 +1,33 @@
+{
+  "group_name": "Test Group",
+  "launch_target": "agent",
+  "project_id": "Project-One",
+  "execute_method": "HotFix.Test.GameAutomatedTester.AutomatedTesterStart.BatchStartTest",
+  "instances": [
+    {
+      "name": "instance-1",
+      "args": {
+        "Account": "123456",
+        "scene": "Assets/Scenes/Init.unity"
+      }
+    },
+    {
+      "name": "instance-2",
+      "args": {
+        "Account": "224",
+        "scene": "Assets/Scenes/Init.unity"
+      }
+    },
+    {
+      "name": "instance-3",
+      "args": {
+        "Account": "123456",
+        "scene": "Assets/Scenes/Init.unity"
+      }
+    }
+  ],
+  "group_args": {
+    "LoginServer": "Game",
+    "GameServer": "ws://192.168.1.15:8080"
+  }
+}

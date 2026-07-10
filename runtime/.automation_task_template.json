@@ -1,0 +1,31 @@
+{
+  "name": "Project-One-TestBattle",
+  "project_id": "Project-One",
+  "execute_method": "HotFix.Test.GameAutomatedTester.AutomatedTesterStart.BatchStartTest",
+  "group_name": "TestBattle",
+  "interval_seconds": 10,
+  "max_runs": null,
+  "battle_log_root": "D:\\Documents\\Git\\Project-One\\BattleServer\\bin\\Debug\\net9.0\\logs\\Battle",
+  "group_args": {
+    "LoginServer": "Game",
+    "GameServer": "ws://192.168.1.15:8080"
+  },
+  "instances": [
+    {
+      "name": "instance-1",
+      "project_path": null,
+      "args": {
+        "Account": "224",
+        "scene": "Assets/Scenes/Init.unity"
+      }
+    },
+    {
+      "name": "instance-2",
+      "project_path": null,
+      "args": {
+        "Account": "123456",
+        "scene": "Assets/Scenes/Init.unity"
+      }
+    }
+  ]
+}

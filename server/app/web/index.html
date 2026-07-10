@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f6f7fb" media="(prefers-color-scheme:light)">
+<meta name="theme-color" content="#080b12" media="(prefers-color-scheme:dark)">
+<title>UnityAutomatedTester</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a href="#main-content" class="skip-link">跳转到主内容</a>
+
+<div id="app" class="shell">
+  <aside class="sidebar" aria-label="功能导航">
+    <div class="brand-block">
+      <div class="brand-mark" aria-hidden="true">UA</div>
+      <div>
+        <h1>UnityAutomatedTester</h1>
+        <p>自动化测试控制台</p>
+      </div>
+    </div>
+
+    <nav class="side-tabs" role="tablist" aria-label="功能选项卡">
+      <button type="button" class="side-tab active" role="tab" id="tab-instances" aria-selected="true" aria-controls="panel-instances" onclick="switchTab('instances')">
+        <span class="tab-kicker">01</span>
+        <span class="tab-title">实例</span>
+        <span class="tab-desc">监控运行状态</span>
+      </button>
+      <button type="button" class="side-tab" role="tab" id="tab-agents" aria-selected="false" aria-controls="panel-agents" onclick="switchTab('agents')">
+        <span class="tab-kicker">02</span>
+        <span class="tab-title">Agent</span>
+        <span class="tab-desc">连接与空闲资源</span>
+      </button>
+      <button type="button" class="side-tab" role="tab" id="tab-automation" aria-selected="false" aria-controls="panel-automation" onclick="switchTab('automation')">
+        <span class="tab-kicker">03</span>
+        <span class="tab-title">自动任务</span>
+        <span class="tab-desc">循环启动测试</span>
+      </button>
+      <button type="button" class="side-tab" role="tab" id="tab-tools" aria-selected="false" aria-controls="panel-tools" onclick="switchTab('tools')">
+        <span class="tab-kicker">04</span>
+        <span class="tab-title">其它</span>
+        <span class="tab-desc">手动注册实例</span>
+      </button>
+      <button type="button" class="side-tab" role="tab" id="tab-history" aria-selected="false" aria-controls="panel-history" onclick="switchTab('history')">
+        <span class="tab-kicker">05</span>
+        <span class="tab-title">历史</span>
+        <span class="tab-desc">已归档记录</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <span id="health-badge" class="badge badge-pending" role="status" aria-live="polite">checking...</span>
+      <label class="toggle-label">
+        <input type="checkbox" id="auto-refresh" checked onchange="toggleAutoRefresh()">
+        自动刷新
+      </label>
+    </div>
+  </aside>
+
+  <main class="workspace" id="main-content">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Local Control Surface</p>
+        <h2 id="page-title">Unity 实例</h2>
+      </div>
+      <div class="topbar-actions">
+        <div class="server-info">
+          <span>Server <code>http://127.0.0.1:5100</code></span>
+          <span>WebSocket <code>ws://127.0.0.1:5100/ws/unity</code></span>
+        </div>
+        <button type="button" onclick="refreshAll()">刷新</button>
+      </div>
+    </header>
+
+    <section class="tab-panel active" id="panel-instances" role="tabpanel" aria-labelledby="tab-instances">
+      <div class="panel-note">查看测试进程、连接状态和执行进度，并点击任意实例打开详情。</div>
+      <section class="card instance-list-section" aria-labelledby="instances-heading">
+        <h3 id="instances-heading">实例列表</h3>
+        <div id="instance-list">
+          <div class="empty">暂无实例</div>
+        </div>
+      </section>
+    </section>
+
+    <section class="tab-panel" id="panel-agents" role="tabpanel" aria-labelledby="tab-agents" hidden>
+      <div class="panel-note">查看 Agent 连接状态、空闲项目实例和资源占用情况。</div>
+      <div id="agent-list">
+        <div class="empty">暂无 Agent 连接</div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="panel-automation" role="tabpanel" aria-labelledby="tab-automation" hidden>
+      <div class="panel-note">配置循环自动任务：一轮完成后等待指定时间，有空闲实例后继续下一轮。</div>
+      <section class="card" aria-labelledby="automation-heading">
+        <div class="card-header">
+          <h3 id="automation-heading">自动任务</h3>
+          <button type="button" class="btn-primary" onclick="openAutomationCreateDialog()">+ 新建任务</button>
+        </div>
+        <div id="automation-list">
+          <div class="empty">暂无自动任务</div>
+        </div>
+      </section>
+    </section>
+
+    <section class="tab-panel" id="panel-tools" role="tabpanel" aria-labelledby="tab-tools" hidden>
+      <div class="panel-note">用于 Unity 已打开时，将外部实例手动注册到控制台。</div>
+      <section class="card" aria-labelledby="manual-heading">
+        <h3 id="manual-heading">手动注册</h3>
+        <div class="form-group">
+          <label for="inp-manual-id">instance_id</label>
+          <input type="text" id="inp-manual-id" autocomplete="off" spellcheck="false" value="manual-unity-001">
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn-primary" onclick="registerManual(this)">注册</button>
+        </div>
+        <div id="manual-error" class="error-box" role="alert" aria-live="assertive" hidden></div>
+      </section>
+    </section>
+
+    <section class="tab-panel" id="panel-history" role="tabpanel" aria-labelledby="tab-history" hidden>
+      <div class="panel-note">已归档的组执行记录。</div>
+      <section class="card history-list-section" aria-labelledby="history-heading">
+        <div class="card-header">
+          <h3 id="history-heading">执行历史 — 组</h3>
+          <div>
+            <span id="history-selected-count" style="margin-right:8px;color:var(--color-text-secondary);font-size:13px"></span>
+            <button type="button" class="btn-sm" onclick="selectAllHistory()">全选</button>
+            <button type="button" class="btn-sm" onclick="unselectAllHistory()">取消选择</button>
+            <button type="button" class="btn-sm btn-danger" onclick="deleteSelectedHistory()">删除选中</button>
+          </div>
+        </div>
+        <div id="history-groups-list">
+          <div class="empty">暂无组历史记录</div>
+        </div>
+        <div id="history-pagination" class="pagination-bar" hidden>
+          <span id="pagination-info" class="pagination-info"></span>
+          <div class="pagination-btns">
+            <button type="button" class="btn-sm" onclick="goToHistoryPage(1)">首页</button>
+            <button type="button" class="btn-sm" id="pagination-prev" onclick="goToHistoryPage(_historyPage - 1)">上一页</button>
+            <span id="pagination-pages" class="pagination-pages"></span>
+            <button type="button" class="btn-sm" id="pagination-next" onclick="goToHistoryPage(_historyPage + 1)">下一页</button>
+            <button type="button" class="btn-sm" onclick="goToHistoryPage(_historyTotalPages)">末页</button>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <div id="automation-modal" class="overlay" role="dialog" aria-modal="true" aria-labelledby="automation-modal-title" hidden>
+    <div class="detail-panel automation-modal-panel">
+      <div class="detail-header">
+        <h2 id="automation-modal-title">新建自动任务</h2>
+        <button class="close-btn" onclick="closeAutomationDialog()" aria-label="关闭">&times;</button>
+      </div>
+      <div class="detail-body">
+        <form id="automation-form" novalidate>
+          <div class="form-grid two-col">
+            <div class="form-group">
+              <label for="auto-name">任务名称</label>
+              <input type="text" id="auto-name" autocomplete="off" spellcheck="false" value="Auto Task">
+            </div>
+            <div class="form-group">
+              <label for="auto-project-id">project_id</label>
+              <input type="text" id="auto-project-id" autocomplete="off" spellcheck="false" value="Project-One">
+            </div>
+            <div class="form-group">
+              <label for="auto-interval">等待间隔秒数</label>
+              <input type="number" id="auto-interval" min="0" value="300">
+            </div>
+            <div class="form-group">
+              <label for="auto-max-runs">最大运行次数 <span class="json-badge">留空无限</span></label>
+              <input type="number" id="auto-max-runs" min="1" placeholder="无限循环">
+            </div>
+            <div class="form-group">
+              <label for="auto-battle-log-root">战斗服日志路径 <span class="json-badge">可选</span></label>
+              <input type="text" id="auto-battle-log-root" autocomplete="off" spellcheck="false" placeholder="D:\...\logs\Battle">
+            </div>
+            <div class="form-group">
+              <label for="auto-group-name">group_name</label>
+              <input type="text" id="auto-group-name" autocomplete="off" spellcheck="false" value="Auto Group">
+            </div>
+            <div class="form-group">
+              <label for="auto-method">execute_method</label>
+              <input type="text" id="auto-method" autocomplete="off" spellcheck="false" value="HotFix.Test.GameAutomatedTester.AutomatedTesterStart.BatchStartTest">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="auto-group-args">组公共 args <span class="json-badge">JSON，与实例 args 合并</span></label>
+            <textarea id="auto-group-args" rows="5" spellcheck="false" autocomplete="off" style="font-family:'SF Mono',Consolas,monospace">{}</textarea>
+          </div>
+          <div class="form-section-divider">
+            <h4>实例配置</h4>
+            <button type="button" class="btn-sm" onclick="addAutomationInstance()">+ 添加实例</button>
+          </div>
+          <div id="automation-instances"></div>
+          <div id="automation-error" class="error-box" role="alert" aria-live="assertive" hidden></div>
+          <div class="form-actions" style="margin-top:16px">
+            <button type="button" onclick="closeAutomationDialog()">取消</button>
+            <button type="button" class="btn-primary" onclick="createAutomationTaskFromDialog(this)">保存任务</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="detail-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="detail-title" hidden>
+    <div class="detail-panel">
+      <div class="detail-header">
+        <button class="back-btn" id="detail-back-btn" onclick="backFromInstanceDetail()" aria-label="返回" hidden>&larr; 返回</button>
+        <h2 id="detail-title">实例详情</h2>
+        <button class="close-btn" onclick="closeDetail()" aria-label="关闭详情">&times;</button>
+      </div>
+      <div class="detail-body">
+        <div class="detail-section" id="detail-section-info">
+          <h3>基本信息</h3>
+          <table id="detail-info" class="info-table" aria-label="基本信息"></table>
+        </div>
+        <div class="detail-section" id="detail-section-progress">
+          <h3>进度</h3>
+          <div id="detail-progress"></div>
+        </div>
+        <div class="detail-section" id="detail-section-logs">
+          <h3>日志</h3>
+          <div id="detail-logs" class="logs-container" role="log" aria-live="polite">
+            <div class="empty">暂无日志</div>
+          </div>
+        </div>
+        <div class="detail-section" id="detail-section-result">
+          <h3>结果</h3>
+          <div id="detail-result" class="result-box">
+            <div class="empty">暂无结果</div>
+          </div>
+        </div>
+        <div class="detail-section" id="detail-section-actions">
+          <h3>操作</h3>
+          <div class="detail-actions">
+            <button type="button" onclick="sendPing(currentDetailId)">发送 Ping</button>
+            <button type="button" onclick="sendShutdown(currentDetailId)" class="btn-danger">发送 Shutdown</button>
+            <button type="button" onclick="sendStartTest(currentDetailId)">发送 Start Test</button>
+            <button type="button" onclick="sendStopTest(currentDetailId)">发送 Stop Test</button>
+            <button type="button" onclick="stopInstance(currentDetailId)" class="btn-danger">停止实例</button>
+          </div>
+          <div class="form-group" style="margin-top:12px">
+            <label for="inp-custom-message">自定义消息 <span class="json-badge">JSON</span></label>
+            <textarea id="inp-custom-message" rows="4" spellcheck="false" autocomplete="off">{
+  "type": "custom_command",
+  "payload": {
+    "message": "hello unity"
+  }
+}</textarea>
+          </div>
+          <button type="button" onclick="sendCustomMessage(currentDetailId)">发送自定义消息</button>
+          <div id="detail-error" class="error-box" role="alert" aria-live="assertive" hidden></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" aria-live="polite" aria-relevant="additions"></div>
+</div>
+
+<div id="automation-detail-modal" class="overlay" role="dialog" aria-modal="true" aria-labelledby="auto-detail-title" hidden>
+  <div class="detail-panel" style="max-width:1000px">
+    <div class="detail-header">
+      <h2 id="auto-detail-title">自动任务详情</h2>
+      <button class="close-btn" onclick="closeAutomationDetail()" aria-label="关闭">&times;</button>
+    </div>
+    <div class="detail-body">
+      <div class="detail-section">
+        <h3>任务配置</h3>
+        <table id="auto-detail-info" class="info-table" aria-label="任务配置"></table>
+      </div>
+      <div class="detail-section">
+        <h3>任务总结</h3>
+        <div id="auto-detail-summary" style="display:flex;gap:24px;flex-wrap:wrap"></div>
+      </div>
+      <div class="detail-section" id="auto-detail-runs-section">
+        <h3>执行记录</h3>
+        <div id="auto-detail-runs"><div class="empty">暂无执行记录</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
