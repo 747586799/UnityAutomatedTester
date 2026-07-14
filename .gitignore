@@ -9,3 +9,4 @@ build/
 *.spec
 dist/
 runtime/history/
+runtime/
