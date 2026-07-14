@@ -4,14 +4,14 @@
       "task_id": "task-5d98268f",
       "name": "TestBattle-Mutili",
       "description": null,
-      "state": "waiting",
+      "state": "running",
       "project_id": "Project-One",
       "execute_method": "HotFix.Test.GameAutomatedTester.AutomatedTesterStart.BatchStartTest",
       "group_name": "TestBattle",
       "interval_seconds": 10,
       "execution_timeout_seconds": 1800,
       "max_runs": null,
-      "current_run_count": 4,
+      "current_run_count": 5,
       "battle_log_root": "D:\\Documents\\Git\\Project-One\\BattleServer\\bin\\Debug\\net9.0\\logs\\Battle",
       "group_args": {
         "LoginServer": "Game",
@@ -244,14 +244,86 @@
           },
           "battle_match": false,
           "error": null
+        },
+        {
+          "run_id": "run-14baa021",
+          "task_id": "task-5d98268f",
+          "group_id": "group-45fb28a6",
+          "group_name": "TestBattle",
+          "started_time": "2026-07-14T16:11:38.384648",
+          "finished_time": "2026-07-14T16:12:43.150958",
+          "archived_time": "2026-07-14T16:12:42.804078",
+          "state": "completed",
+          "total": 2,
+          "completed": 2,
+          "failed": 0,
+          "history_id": "group-45fb28a6-20260714-161242",
+          "history_missing": false,
+          "history_summary": {
+            "history_id": "group-45fb28a6-20260714-161242",
+            "group_id": "group-45fb28a6",
+            "group_name": "TestBattle",
+            "total": 2,
+            "completed": 2,
+            "failed": 0,
+            "state": "completed",
+            "start_time": "2026-07-14T16:11:38.386811",
+            "end_time": "2026-07-14T16:12:42.095258",
+            "archived_time": "2026-07-14T16:12:42.804078",
+            "report_same": true,
+            "battle_match": false
+          },
+          "report_same": true,
+          "report_summary": {
+            "baseline_instance_id": "unity-7f84505f",
+            "same": true,
+            "items": [
+              {
+                "instance_id": "unity-7f84505f",
+                "launch_name": "instance-1",
+                "sha256": "c2148f5990198d0ebd622e13219b3fccc181cce8fcd21561f38081c33a916e5d",
+                "same_as_baseline": true,
+                "report_length": 939034
+              },
+              {
+                "instance_id": "unity-67ffa422",
+                "launch_name": "instance-2",
+                "sha256": "c2148f5990198d0ebd622e13219b3fccc181cce8fcd21561f38081c33a916e5d",
+                "same_as_baseline": true,
+                "report_length": 939034
+              }
+            ]
+          },
+          "battle_match": false,
+          "error": null
+        },
+        {
+          "run_id": "run-7288a808",
+          "task_id": "task-5d98268f",
+          "group_id": "group-284a547c",
+          "group_name": "TestBattle",
+          "started_time": "2026-07-14T16:12:53.202822",
+          "finished_time": null,
+          "archived_time": null,
+          "state": "running",
+          "total": 2,
+          "completed": 0,
+          "failed": 0,
+          "history_id": null,
+          "history_missing": false,
+          "history_summary": null,
+          "report_same": null,
+          "report_summary": null,
+          "battle_match": null,
+          "error": null
         }
       ],
-      "last_group_id": "group-bb34baef",
+      "last_group_id": "group-284a547c",
       "last_error": null,
-      "last_run_time": "2026-07-14T16:10:24.810803",
-      "next_run_time": "2026-07-14T16:11:38.325690",
+      "last_run_time": "2026-07-14T16:12:53.202822",
+      "next_run_time": null,
       "created_time": "2026-07-14T16:05:58.691876",
-      "updated_time": "2026-07-14T16:11:28.332032"
+      "updated_time": "2026-07-14T16:12:53.204065"
     },
     {
       "task_id": "task-d1ba4829",
@@ -264,7 +336,7 @@
       "interval_seconds": 10,
       "execution_timeout_seconds": 1800,
       "max_runs": null,
-      "current_run_count": 4,
+      "current_run_count": 5,
       "battle_log_root": "D:\\Documents\\Git\\Project-One\\BattleServer\\bin\\Debug\\net9.0\\logs\\Battle",
       "group_args": {
         "LoginServer": "Game",
@@ -468,6 +540,51 @@
           "group_id": "group-d377db53",
           "group_name": "TestBattle",
           "started_time": "2026-07-14T16:11:38.373800",
+          "finished_time": "2026-07-14T16:12:41.107701",
+          "archived_time": "2026-07-14T16:12:41.067242",
+          "state": "completed",
+          "total": 1,
+          "completed": 1,
+          "failed": 0,
+          "history_id": "group-d377db53-20260714-161240",
+          "history_missing": false,
+          "history_summary": {
+            "history_id": "group-d377db53-20260714-161240",
+            "group_id": "group-d377db53",
+            "group_name": "TestBattle",
+            "total": 1,
+            "completed": 1,
+            "failed": 0,
+            "state": "completed",
+            "start_time": "2026-07-14T16:11:38.376017",
+            "end_time": "2026-07-14T16:12:40.672705",
+            "archived_time": "2026-07-14T16:12:41.067242",
+            "report_same": true,
+            "battle_match": false
+          },
+          "report_same": true,
+          "report_summary": {
+            "baseline_instance_id": "unity-df684f31",
+            "same": true,
+            "items": [
+              {
+                "instance_id": "unity-df684f31",
+                "launch_name": "instance-1",
+                "sha256": "c2148f5990198d0ebd622e13219b3fccc181cce8fcd21561f38081c33a916e5d",
+                "same_as_baseline": true,
+                "report_length": 939034
+              }
+            ]
+          },
+          "battle_match": false,
+          "error": null
+        },
+        {
+          "run_id": "run-88f10104",
+          "task_id": "task-d1ba4829",
+          "group_id": "group-d2c279be",
+          "group_name": "TestBattle",
+          "started_time": "2026-07-14T16:12:51.191471",
           "finished_time": null,
           "archived_time": null,
           "state": "running",
@@ -483,12 +600,12 @@
           "error": null
         }
       ],
-      "last_group_id": "group-d377db53",
+      "last_group_id": "group-d2c279be",
       "last_error": null,
-      "last_run_time": "2026-07-14T16:11:38.373800",
+      "last_run_time": "2026-07-14T16:12:51.191471",
       "next_run_time": null,
       "created_time": "2026-07-14T16:06:22.485576",
-      "updated_time": "2026-07-14T16:11:38.377991"
+      "updated_time": "2026-07-14T16:12:51.193417"
     }
   ]
 }
