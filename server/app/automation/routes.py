@@ -149,6 +149,8 @@ def refresh_task_battle_logs(
     for run in task.runs:
         if run.state == "running" or not run.history_id or run.history_missing:
             continue
+        if run.report_same is True and run.battle_match is True:
+            continue
         battle_compare = history_store.refresh_group_battle_logs(run.history_id, task.battle_log_root)
         if battle_compare is not None:
             run.battle_match = battle_compare.all_match
