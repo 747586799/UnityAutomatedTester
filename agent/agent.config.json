@@ -5,6 +5,13 @@
   "unity_server_url": "ws://192.168.1.15:5100/ws/unity",
   "project_slots": [
     {
+      "slot_id": "project-one-02",
+      "project_id": "Project-One",
+      "unity_executable_path": "D:/Tools/Unity/Editor/6000.3.9f1/Editor/Unity.exe",
+      "project_path": "D:/Documents/Git/Project-One/Unity/Project-One",
+      "state": "idle"
+    },
+    {
       "slot_id": "project-one-01",
       "project_id": "Project-One",
       "unity_executable_path": "D:/Tools/Unity/Editor/6000.3.9f1/Editor/Unity.exe",
@@ -12,10 +19,10 @@
       "state": "idle"
     },
     {
-      "slot_id": "project-one-02",
+      "slot_id": "project-one-03",
       "project_id": "Project-One",
       "unity_executable_path": "D:/Tools/Unity/Editor/6000.3.9f1/Editor/Unity.exe",
-      "project_path": "D:/Documents/Git/Project-One/Unity/Project-One",
+      "project_path": "D:/Documents/Git/Project-Ones/One/Unity/Project-One",
       "state": "idle"
     }
   ]

@@ -58,11 +58,13 @@ class AutoTaskSummary(BaseModel):
 class AutoTask(BaseModel):
     task_id: str = Field(default_factory=lambda: f"task-{uuid4().hex[:8]}")
     name: str
+    description: str | None = None
     state: AutoTaskState = AutoTaskState.STOPPED
     project_id: str
     execute_method: str
     group_name: str | None = None
     interval_seconds: int = 300
+    execution_timeout_seconds: int | None = None
     max_runs: int | None = None
     current_run_count: int = 0
     battle_log_root: str | None = None
@@ -85,10 +87,12 @@ class AutoTaskDetailResponse(BaseModel):
 
 class CreateAutoTaskRequest(BaseModel):
     name: str
+    description: str | None = None
     project_id: str
     execute_method: str
     group_name: str | None = None
     interval_seconds: int = 300
+    execution_timeout_seconds: int | None = None
     max_runs: int | None = None
     battle_log_root: str | None = None
     group_args: dict[str, str | int | float | bool] = Field(default_factory=dict)
@@ -97,10 +101,12 @@ class CreateAutoTaskRequest(BaseModel):
 
 class UpdateAutoTaskRequest(BaseModel):
     name: str | None = None
+    description: str | None = None
     project_id: str | None = None
     execute_method: str | None = None
     group_name: str | None = None
     interval_seconds: int | None = None
+    execution_timeout_seconds: int | None = None
     max_runs: int | None = None
     battle_log_root: str | None = None
     group_args: dict[str, str | int | float | bool] | None = None

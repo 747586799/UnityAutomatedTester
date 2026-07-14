@@ -48,6 +48,7 @@ function switchTab(tabName) {
   const title = document.getElementById('page-title');
   if (title) title.textContent = tabTitles[tabName] || tabTitles.instances;
 
+
   if (tabName === 'instances') fetchGroups();
   if (tabName === 'agents') fetchAgents();
   if (tabName === 'automation') fetchAutomationTasks();
@@ -135,6 +136,12 @@ function renderAgentSlotCards(slots) {
 function formatTime(value) {
   if (!value) return '-';
   return String(value).substring(0, 19).replace('T', ' ');
+}
+
+function formatShortTime(value) {
+  if (!value) return '-';
+  const text = String(value).substring(0, 16).replace('T', ' ');
+  return text.length >= 16 ? text.substring(5) : text;
 }
 
 /* ======== 健康检查 ======== */
@@ -228,7 +235,8 @@ function renderAutomationTasks(tasks) {
       <div class="agent-card-head">
         <div>
           <div class="agent-name">${escapeHtml(task.name)}</div>
-          <div class="agent-subtitle">${escapeHtml(task.project_id)} · ${task.instances?.length || 0} 实例 · 间隔 ${task.interval_seconds}s</div>
+          ${task.description ? `<div class="agent-subtitle">${escapeHtml(task.description)}</div>` : ''}
+          <div class="agent-subtitle">${escapeHtml(task.project_id)} · ${task.instances?.length || 0} 实例 · 间隔 ${task.interval_seconds}s · 时限 ${task.execution_timeout_seconds || '∞'}s</div>
         </div>
         <span class="state-badge state-${escapeHtml(task.state)}">${escapeHtml(task.state)}</span>
       </div>
@@ -305,9 +313,11 @@ function closeAutomationDialog() {
 function fillAutomationForm(template) {
   const id = (sel) => document.getElementById(sel);
   id('auto-name').value = template.name || 'Auto Task';
+  id('auto-description').value = template.description || '';
   id('auto-project-id').value = template.project_id || 'Project-One';
   id('auto-interval').value = template.interval_seconds ?? 300;
   id('auto-max-runs').value = template.max_runs ?? '';
+  id('auto-execution-timeout').value = template.execution_timeout_seconds ?? '';
   id('auto-battle-log-root').value = template.battle_log_root || '';
   id('auto-group-name').value = template.group_name || template.name || 'Auto Group';
   id('auto-method').value = template.execute_method || 'HotFix.Test.GameAutomatedTester.AutomatedTesterStart.BatchStartTest';
@@ -378,10 +388,12 @@ function collectAutomationFormPayload() {
   if (instances.length === 0) throw new Error('至少需要一个实例');
   return {
     name: document.getElementById('auto-name').value.trim(),
+    description: document.getElementById('auto-description').value.trim() || null,
     project_id: document.getElementById('auto-project-id').value.trim(),
     execute_method: document.getElementById('auto-method').value.trim(),
     group_name: document.getElementById('auto-group-name').value.trim() || null,
     interval_seconds: Number(document.getElementById('auto-interval').value || 0),
+    execution_timeout_seconds: document.getElementById('auto-execution-timeout').value ? Number(document.getElementById('auto-execution-timeout').value) : null,
     max_runs: document.getElementById('auto-max-runs').value ? Number(document.getElementById('auto-max-runs').value) : null,
     battle_log_root: document.getElementById('auto-battle-log-root').value.trim() || null,
     group_args: groupArgs,
@@ -428,6 +440,19 @@ function closeAutomationDetail() {
   document.getElementById('automation-detail-modal').hidden = true;
 }
 
+async function refreshAutomationBattleLogs(taskId, btn) {
+  try {
+    setLoading(btn, true);
+    const data = await apiPost(`/api/automation/tasks/${taskId}/refresh-battle-logs`, {});
+    renderAutomationDetail(data);
+    showToast('已重新获取所有已完成战斗服日志', 'success');
+  } catch (e) {
+    showToast('获取战斗服日志失败: ' + e.message, 'error');
+  } finally {
+    setLoading(btn, false);
+  }
+}
+
 function renderAutomationDetail(data) {
   if (!data) return;
   const task = data.task;
@@ -436,12 +461,14 @@ function renderAutomationDetail(data) {
 
   // ── Task config table ──
   const infoRows = [
-    ['任务名称', task.name],
+    ['任务名称', escapeHtml(task.name)],
+    ['任务描述', task.description ? escapeHtml(task.description) : '<span style="color:var(--color-text-muted)">未填写</span>'],
     ['task_id', task.task_id],
     ['project_id', task.project_id],
     ['execute_method', task.execute_method],
     ['group_name', task.group_name || '-'],
     ['间隔秒数', String(task.interval_seconds)],
+    ['单次执行时限', task.execution_timeout_seconds != null ? String(task.execution_timeout_seconds) + ' 秒' : '无限'],
     ['最大轮次', task.max_runs != null ? String(task.max_runs) : '无限'],
     ['已运行次数', String(task.current_run_count || 0)],
     ['战斗服日志', task.battle_log_root || '<span style="color:var(--color-text-muted)">未配置</span>'],
@@ -538,12 +565,15 @@ function renderAutomationDetail(data) {
 
   // ── Run records table ──
   const runsEl = document.getElementById('auto-detail-runs');
+  const refreshToolbar = `<div style="margin-bottom:10px;display:flex;justify-content:flex-end">
+    <button type="button" class="btn-sm" onclick="refreshAutomationBattleLogs('${task.task_id}', this)">获取所有已完成战斗服日志</button>
+  </div>`;
   if (!runs || runs.length === 0) {
-    runsEl.innerHTML = '<div class="empty">暂无执行记录</div>';
+    runsEl.innerHTML = refreshToolbar + '<div class="empty">暂无执行记录</div>';
     return;
   }
 
-  let runsHtml = `<table class="auto-runs-table">
+  let runsHtml = refreshToolbar + `<table class="auto-runs-table">
     <thead><tr>
       <th>运行 ID</th>
       <th>组名称</th>
@@ -552,6 +582,7 @@ function renderAutomationDetail(data) {
       <th>Report</th>
       <th>战斗服</th>
       <th>开始时间</th>
+      <th>结束时间</th>
       <th>归档</th>
     </tr></thead><tbody>`;
 
@@ -569,12 +600,13 @@ function renderAutomationDetail(data) {
     // Archive link
     let archiveLink = '-';
     if (run.history_id && !run.history_missing) {
-      archiveLink = `<a href="#" onclick="event.preventDefault();closeAutomationDetail();openGroupHistoryDetail('${escapeHtml(run.history_id)}')" style="color:var(--color-primary)">查看</a>`;
+      archiveLink = `<a href="#" onclick="event.preventDefault();openGroupHistoryDetail('${escapeHtml(run.history_id)}')" style="color:var(--color-primary)">查看</a>`;
     } else if (run.history_missing) {
       archiveLink = '<span style="color:var(--color-text-muted)">缺失</span>';
     }
 
-    const startedTime = run.started_time ? run.started_time.substring(0, 19).replace('T', ' ') : '-';
+    const groupStartTime = formatShortTime(run.history_summary?.start_time || run.started_time);
+    const groupEndTime = formatShortTime(run.history_summary?.end_time || run.finished_time);
 
     runsHtml += `<tr>
       <td style="font-size:12px;color:var(--color-text-secondary)">${escapeHtml(run.run_id)}</td>
@@ -583,8 +615,9 @@ function renderAutomationDetail(data) {
       <td>${progressText}</td>
       <td>${reportBadge}</td>
       <td>${battleBadge}</td>
-      <td style="color:var(--color-text-secondary)">${startedTime}</td>
-      <td>${archiveLink}</td>
+      <td style="color:var(--color-text-secondary);white-space:nowrap">${groupStartTime}</td>
+      <td style="color:var(--color-text-secondary);white-space:nowrap">${groupEndTime}</td>
+      <td style="white-space:nowrap">${archiveLink}</td>
     </tr>`;
   }
 
@@ -952,6 +985,8 @@ function renderGroupHistory(records) {
       <th>进度</th>
       <th>Report 验证</th>
       <th>战斗服</th>
+      <th>开始时间</th>
+      <th>结束时间</th>
       <th>归档时间</th>
     </tr></thead><tbody>`;
 
@@ -966,6 +1001,8 @@ function renderGroupHistory(records) {
     const progressText = rec.completed + '/' + rec.total;
     const historyId = rec.history_id || rec.group_id;
     const checked = _selectedHistoryIds.has(historyId);
+    const groupStartTime = formatShortTime(rec.start_time || rec.created_time);
+    const groupEndTime = formatShortTime(rec.end_time || rec.archived_time);
 
     let battleBadge = '<span class="report-same report-same-unknown">未知</span>';
     if (rec.battle_match === true) {
@@ -983,7 +1020,9 @@ function renderGroupHistory(records) {
       <td>${progressText}</td>
       <td>${reportBadge}</td>
       <td>${battleBadge}</td>
-      <td style="color:var(--color-text-secondary)">${rec.archived_time ? rec.archived_time.substring(0, 19).replace('T', ' ') : '-'}</td>
+      <td style="color:var(--color-text-secondary);white-space:nowrap">${groupStartTime}</td>
+      <td style="color:var(--color-text-secondary);white-space:nowrap">${groupEndTime}</td>
+      <td style="color:var(--color-text-secondary);white-space:nowrap">${formatShortTime(rec.archived_time)}</td>
     </tr>`;
   }
 
@@ -1091,6 +1130,21 @@ async function refreshGroupHistoryDetail(historyId) {
   }
 }
 
+async function refreshGroupBattleLog(historyId, btn) {
+  try {
+    setLoading(btn, true);
+    await apiPost('/api/unity/history/groups/' + encodeURIComponent(historyId) + '/refresh-battle-log', {});
+    _groupHistoryData = await apiGet('/api/unity/history/groups/' + encodeURIComponent(historyId));
+    renderGroupHistoryDetail();
+    fetchGroupHistory();
+    showToast('已重新获取当前组战斗服日志', 'success');
+  } catch (e) {
+    showToast('获取当前组战斗服日志失败: ' + e.message, 'error');
+  } finally {
+    setLoading(btn, false);
+  }
+}
+
 function renderGroupHistoryDetail() {
   const record = _groupHistoryData;
   if (!record) return;
@@ -1115,7 +1169,9 @@ function renderGroupHistoryDetail() {
   html += `<tr><td>Total</td><td>${s.total}</td></tr>`;
   html += `<tr><td>Completed</td><td>${s.completed}</td></tr>`;
   html += `<tr><td>Failed</td><td>${s.failed}</td></tr>`;
-  html += `<tr><td>Archived</td><td>${s.archived_time ? s.archived_time.substring(0, 19).replace('T', ' ') : '-'}</td></tr>`;
+  html += `<tr><td>Started</td><td>${formatTime(s.start_time)}</td></tr>`;
+  html += `<tr><td>Ended</td><td>${formatTime(s.end_time)}</td></tr>`;
+  html += `<tr><td>Archived</td><td>${formatTime(s.archived_time)}</td></tr>`;
   html += '</table>';
   document.getElementById('detail-info').innerHTML = html;
 
@@ -1130,10 +1186,9 @@ function renderGroupHistoryDetail() {
     resultHtml += '<h4 style="font-size:14px;margin:0">Report 验证: <span class="report-same ' + sameClass + '">' + sameText + '</span></h4>';
 
     // Diff button — opens compare page with instance selectors
-    if (rc.items && rc.items.length >= 2) {
-      const instanceIds = rc.items.map(it => it.instance_id).join(',');
-      resultHtml += `<button class="btn-sm" onclick="openReportDiff('${s.history_id || s.group_id}', '${instanceIds}')">对比</button>`;
-    }
+    const reportItems = rc.items || [];
+    const instanceIds = reportItems.map(it => it.instance_id).join(',');
+    resultHtml += `<button class="btn-sm" onclick="openReportDiff('${s.history_id || s.group_id}', '${instanceIds}')">对比</button>`;
     resultHtml += '</div>';
 
     resultHtml += '<table class="compare-instances-table"><thead><tr><th>实例</th><th>SHA256</th><th>一致</th></tr></thead><tbody>';
@@ -1167,7 +1222,10 @@ function renderGroupHistoryDetail() {
   }
 
   // Battle compare section
-  resultHtml += '<h4 style="margin-top:20px;font-size:14px;margin-bottom:10px">战斗服验证</h4>';
+  resultHtml += `<div style="display:flex;align-items:center;gap:12px;margin-top:20px;margin-bottom:10px;flex-wrap:wrap">
+    <h4 style="font-size:14px;margin:0">战斗服验证</h4>
+    <button type="button" class="btn-sm" onclick="refreshGroupBattleLog('${s.history_id || s.group_id}', this)">获取当前组战斗服日志</button>
+  </div>`;
   if (record.battle_compare) {
     const bc = record.battle_compare;
     if (bc.battle_log_missing) {
@@ -1199,9 +1257,11 @@ function renderGroupHistoryDetail() {
 }
 
 function openReportDiff(historyId, instanceIds) {
+  const count = instanceIds ? instanceIds.split(',').filter(Boolean).length : 0;
+  const right = count > 1 ? 1 : 0;
   const url = '/report-diff.html?history_id=' + encodeURIComponent(historyId)
     + '&instances=' + encodeURIComponent(instanceIds)
-    + '&left=0&right=1';
+    + '&left=0&right=' + right;
   window.open(url, '_blank');
 }
 

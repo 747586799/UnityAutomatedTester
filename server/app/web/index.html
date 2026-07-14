@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#f6f7fb" media="(prefers-color-scheme:light)">
 <meta name="theme-color" content="#080b12" media="(prefers-color-scheme:dark)">
 <title>UnityAutomatedTester</title>
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=20260714-overlay-zindex">
 </head>
 <body>
 <a href="#main-content" class="skip-link">跳转到主内容</a>
@@ -162,6 +162,10 @@
               <input type="text" id="auto-name" autocomplete="off" spellcheck="false" value="Auto Task">
             </div>
             <div class="form-group">
+              <label for="auto-description">任务描述 <span class="json-badge">可选</span></label>
+              <input type="text" id="auto-description" autocomplete="off" spellcheck="false" placeholder="说明任务用途、场景或关注点">
+            </div>
+            <div class="form-group">
               <label for="auto-project-id">project_id</label>
               <input type="text" id="auto-project-id" autocomplete="off" spellcheck="false" value="Project-One">
             </div>
@@ -172,6 +176,10 @@
             <div class="form-group">
               <label for="auto-max-runs">最大运行次数 <span class="json-badge">留空无限</span></label>
               <input type="number" id="auto-max-runs" min="1" placeholder="无限循环">
+            </div>
+            <div class="form-group">
+              <label for="auto-execution-timeout">单次执行时限秒数 <span class="json-badge">留空无限</span></label>
+              <input type="number" id="auto-execution-timeout" min="1" placeholder="例如 1800">
             </div>
             <div class="form-group">
               <label for="auto-battle-log-root">战斗服日志路径 <span class="json-badge">可选</span></label>
@@ -284,6 +292,6 @@
   </div>
 </div>
 
-<script src="app.js"></script>
+<script src="app.js?v=20260714-keep-auto-detail"></script>
 </body>
 </html>

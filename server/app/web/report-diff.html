@@ -57,7 +57,7 @@ body {
 .diff-header {
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 20;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -68,13 +68,44 @@ body {
   font-family: system-ui, -apple-system, sans-serif;
   flex-wrap: wrap;
 }
-.diff-header h1 { font-size: 16px; font-weight: 800; }
-.diff-header .diff-status {
-  font-size: 13px; padding: 4px 10px; border-radius: 999px; font-weight: 700;
+.diff-toolbar {
+  position: sticky;
+  top: 66px;
+  z-index: 19;
+  background: var(--color-surface);
 }
-.diff-status.same { background: #dcfce7; color: #166534; }
-.diff-status.different { background: #fee2e2; color: #991b1b; }
-
+.diff-toolbar .selector-bar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 18px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+.diff-toolbar .selector-bar label {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.diff-toolbar .selector-bar select {
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.diff-toolbar .selector-bar select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
 .diff-labels {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -116,6 +147,12 @@ body {
   user-select: none;
   font-size: 11px;
 }
+.diff-header h1 { font-size: 16px; font-weight: 800; }
+.diff-header .diff-status {
+  font-size: 13px; padding: 4px 10px; border-radius: 999px; font-weight: 700;
+}
+.diff-status.same { background: #dcfce7; color: #166534; }
+.diff-status.different { background: #fee2e2; color: #991b1b; }
 .line-left, .line-right { width: 50%; }
 .line-left { border-right: 1px solid var(--color-border); }
 tr.same td { background: transparent; }
@@ -187,39 +224,6 @@ tr.added td.line-left { background: var(--color-diff-empty-bg); }
   border-radius: 6px;
 }
 
-.selector-bar {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  padding: 8px 18px;
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
-  font-family: system-ui, -apple-system, sans-serif;
-  font-size: 13px;
-  flex-wrap: wrap;
-}
-.selector-bar label {
-  color: var(--color-text-secondary);
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.selector-bar select {
-  padding: 4px 8px;
-  border-radius: 6px;
-  border: 1px solid var(--color-border);
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-size: 13px;
-  font-family: inherit;
-  cursor: pointer;
-}
-.selector-bar select:focus {
-  outline: none;
-  border-color: var(--color-primary);
-}
-
 .loading {
   display: flex;
   justify-content: center;
@@ -279,10 +283,10 @@ function cleanCommonPrefixes(line) {
 
 /** Format numbers to 4 decimal places. */
 function formatNumbersStrict(text) {
-  return text.replace(/\b-?\d+(?:\.\d+)?\b/g, function(m) {
+  return text.replace(/(?<![\w.])-?\d+(?:\.\d+)?(?![\w.])/g, function(m) {
     var val = parseFloat(m);
     if (!isNaN(val)) {
-      if (val === 0) val = 0;
+      if (Object.is(val, -0) || val === 0) return '0.0000';
       return val.toFixed(4);
     }
     return m;
@@ -424,22 +428,26 @@ function renderDiffTable(linesA, linesB, labelA, labelB, activeMode) {
       '</div>' +
     '</div>' +
   '</div>' +
-  selectorHtml +
-  '<div class="mode-bar">' +
-    '<span style="color:var(--color-text-muted)">对比模式:</span>' +
-    '<button class="btn-mode" id="mode-cleaned" onclick="switchMode(\'cleaned\')">清洗后</button>' +
-    '<button class="btn-mode" id="mode-raw" onclick="switchMode(\'raw\')">原始</button>' +
-    '<span style="margin:0 8px;color:var(--color-border)">|</span>' +
-    '<label style="display:flex;align-items:center;gap:4px;cursor:pointer">' +
-      '<input type="checkbox" id="chk-clean-id" ' + (_cleanId ? 'checked ' : '') + 'onchange="toggleCleanId()">' +
-      '<span>归一化ID</span>' +
-    '</label>' +
-    '<span style="margin:0 8px;color:var(--color-border)">|</span>' +
-    '<button class="btn-mode" id="mode-raw-view" onclick="switchMode(\'raw-view\')">查看原文件</button>' +
-  '</div>' +
-  '<div class="diff-labels">' +
-    '<div class="diff-label">' + escapeHtml(labelA) + '</div>' +
-    '<div class="diff-label">' + escapeHtml(labelB) + '</div>' +
+  '<div class="diff-toolbar">' +
+    selectorHtml +
+    '<div class="mode-bar">' +
+      '<span style="color:var(--color-text-muted)">对比模式:</span>' +
+      '<button class="btn-mode" id="mode-cleaned" onclick="switchMode(\'cleaned\')">清洗后</button>' +
+      '<button class="btn-mode" id="mode-raw" onclick="switchMode(\'raw\')">原始</button>' +
+      '<span style="margin:0 8px;color:var(--color-border)">|</span>' +
+      '<label style="display:flex;align-items:center;gap:4px;cursor:pointer">' +
+        '<input type="checkbox" id="chk-clean-id" ' + (_cleanId ? 'checked ' : '') + 'onchange="toggleCleanId()">' +
+        '<span>归一化ID</span>' +
+      '</label>' +
+      '<span style="margin:0 8px;color:var(--color-border)">|</span>' +
+      '<button class="btn-mode" onclick="jumpToNextDiff()" title="快捷键: N / J">下一个差异 &darr;</button>' +
+      '<span style="margin:0 8px;color:var(--color-border)">|</span>' +
+      '<button class="btn-mode" id="mode-raw-view" onclick="switchMode(\'raw-view\')">查看原文件</button>' +
+    '</div>' +
+    '<div class="diff-labels">' +
+      '<div class="diff-label">' + escapeHtml(labelA) + '</div>' +
+      '<div class="diff-label">' + escapeHtml(labelB) + '</div>' +
+    '</div>' +
   '</div>' +
   '<div id="diff-body">' +
     '<table class="diff-table">' + tableRows + '</table>' +
@@ -499,7 +507,7 @@ function onSelectorChange() {
   var leftIdx = parseInt(document.getElementById('sel-left').value);
   var rightIdx = parseInt(document.getElementById('sel-right').value);
   if (leftIdx === _currentLeftIdx && rightIdx === _currentRightIdx) return;
-  if (leftIdx === rightIdx) {
+  if (leftIdx === rightIdx && _instanceIds.length > 1) {
     // revert
     document.getElementById('sel-left').value = _currentLeftIdx;
     document.getElementById('sel-right').value = _currentRightIdx;
@@ -560,23 +568,20 @@ async function loadDiff() {
   var historyId = params.get('history_id');
   var instancesParam = params.get('instances');
   var leftIdx = parseInt(params.get('left')) || 0;
-  var rightIdx = parseInt(params.get('right')) || 1;
+  var rightIdx = parseInt(params.get('right')) || 0;
 
   if (!historyId || !instancesParam) {
     document.getElementById('root').innerHTML = '<div class="error">缺少参数: 需要 history_id, instances</div>';
     return;
   }
 
-  _instanceIds = instancesParam.split(',');
-  if (_instanceIds.length < 2) {
-    document.getElementById('root').innerHTML = '<div class="error">至少需要 2 个实例</div>';
+  _instanceIds = instancesParam.split(',').filter(Boolean);
+  if (_instanceIds.length < 1) {
+    document.getElementById('root').innerHTML = '<div class="error">至少需要 1 个实例</div>';
     return;
   }
   _currentLeftIdx = Math.min(leftIdx, _instanceIds.length - 1);
   _currentRightIdx = Math.min(rightIdx, _instanceIds.length - 1);
-  if (_currentLeftIdx === _currentRightIdx) {
-    _currentRightIdx = _currentLeftIdx === 0 ? 1 : 0;
-  }
 
   try {
     var res = await fetch('/api/unity/history/groups/' + historyId);
@@ -618,6 +623,44 @@ async function loadDiff() {
 }
 
 loadDiff();
+
+// ── Jump to next diff ──
+
+function jumpToNextDiff() {
+  var diffBody = document.getElementById('diff-body');
+  if (!diffBody) return;
+  var diffRows = diffBody.querySelectorAll('tr.removed, tr.added');
+  if (diffRows.length === 0) return;
+
+  var centerLine = window.scrollY + window.innerHeight / 2;
+  var target = null;
+  for (var i = 0; i < diffRows.length; i++) {
+    var rowTop = diffRows[i].getBoundingClientRect().top + window.scrollY;
+    if (rowTop > centerLine + 4) {
+      target = diffRows[i];
+      break;
+    }
+  }
+  if (!target) target = diffRows[0];
+
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  var cells = target.querySelectorAll('td');
+  for (var j = 0; j < cells.length; j++) {
+    cells[j].style.outline = '2px solid var(--color-primary)';
+    cells[j].style.outlineOffset = '-1px';
+    setTimeout(function(cell) { return function() { cell.style.outline = ''; }; }(cells[j]), 2000);
+  }
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'n' || e.key === 'N' || e.key === 'j' || e.key === 'J') {
+    // Don't trigger if typing in an input/select
+    var tag = e.target.tagName;
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+    e.preventDefault();
+    jumpToNextDiff();
+  }
+});
 </script>
 </body>
 </html>

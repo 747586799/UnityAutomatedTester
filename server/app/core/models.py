@@ -183,6 +183,8 @@ class UnityGroupHistorySummary(BaseModel):
     completed: int = 0
     failed: int = 0
     state: str = ""
+    start_time: str = ""
+    end_time: str = ""
     archived_time: str = ""
     report_same: bool | None = None
     battle_match: bool | None = None

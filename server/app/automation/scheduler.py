@@ -64,7 +64,7 @@ class AutoTaskScheduler:
     async def tick(self) -> None:
         for task in self._store.list():
             if task.state == AutoTaskState.RUNNING:
-                self._check_running_task(task)
+                await self._check_running_task(task)
             elif task.state in {AutoTaskState.WAITING, AutoTaskState.BLOCKED}:
                 await self._try_start_task(task)
 
@@ -128,7 +128,7 @@ class AutoTaskScheduler:
             task.next_run_time = None
             self._store.save_task(task)
 
-    def _check_running_task(self, task: AutoTask) -> None:
+    async def _check_running_task(self, task: AutoTask) -> None:
         if not task.last_group_id:
             task.state = AutoTaskState.WAITING
             task.next_run_time = datetime.now()
@@ -136,6 +136,10 @@ class AutoTaskScheduler:
             return
 
         group = self._manager.get_group(task.last_group_id)
+        if group is not None and self._is_execution_timed_out(task):
+            await self._stop_timed_out_group(task, group)
+            return
+
         if group is None:
             now_ts = time.time()
             last = self._history_lookup_cooldown.get(task.last_group_id, 0)
@@ -162,6 +166,31 @@ class AutoTaskScheduler:
         else:
             task.state = AutoTaskState.WAITING
             task.next_run_time = now + timedelta(seconds=max(0, task.interval_seconds))
+        self._store.save_task(task)
+
+    def _is_execution_timed_out(self, task: AutoTask) -> bool:
+        if not task.execution_timeout_seconds or task.execution_timeout_seconds <= 0:
+            return False
+        if task.last_run_time is None:
+            return False
+        return datetime.now() - task.last_run_time >= timedelta(seconds=task.execution_timeout_seconds)
+
+    async def _stop_timed_out_group(self, task: AutoTask, group) -> None:
+        message = f"单次执行超过时限 {task.execution_timeout_seconds}s，已停止正在运行的实例"
+        logger.warning("Auto task run timed out: task_id=%s group_id=%s timeout=%ss", task.task_id, task.last_group_id, task.execution_timeout_seconds)
+        for inst in group.instances:
+            if inst.state in TERMINAL_STATES:
+                continue
+            try:
+                await self._manager.stop_instance(inst.id, force=True)
+            except Exception:
+                logger.warning("Failed to stop timed out instance: instance_id=%s", inst.id, exc_info=True)
+        run = next((item for item in reversed(task.runs) if item.group_id == task.last_group_id), None)
+        if run is not None:
+            run.state = "timeout"
+            run.error = message
+            run.finished_time = datetime.now()
+        task.last_error = message
         self._store.save_task(task)
 
     def _finalize_run_record(self, task: AutoTask, now: datetime) -> None:
@@ -192,7 +221,8 @@ class AutoTaskScheduler:
         run.total = summary.total
         run.completed = summary.completed
         run.failed = summary.failed
-        run.state = "failed" if summary.failed > 0 else "completed"
+        if run.state != "timeout":
+            run.state = "failed" if summary.failed > 0 else "completed"
         if history.report_compare is not None:
             run.report_same = history.report_compare.same
             run.report_summary = history.report_compare.model_dump(mode="json")

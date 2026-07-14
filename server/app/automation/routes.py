@@ -11,7 +11,8 @@ from app.automation.models import (
 from app.automation.scheduler import AutoTaskScheduler
 from app.automation.store import AutoTaskStore
 from app.automation.template_store import AutomationTaskTemplateStore
-from app.dependencies import get_auto_task_scheduler, get_auto_task_store, get_automation_template_store
+from app.dependencies import get_auto_task_scheduler, get_auto_task_store, get_automation_template_store, get_history_store
+from app.runtime.history_store import HistoryStore
 
 router = APIRouter(prefix="/api/automation", tags=["automation"])
 
@@ -133,3 +134,25 @@ def stop_task(
     if task is None:
         raise HTTPException(status_code=404, detail="task not found")
     return scheduler.stop_task(task)
+
+
+@router.post("/tasks/{task_id}/refresh-battle-logs", response_model=AutoTaskDetailResponse)
+def refresh_task_battle_logs(
+    task_id: str,
+    store: AutoTaskStore = Depends(get_auto_task_store),
+    history_store: HistoryStore = Depends(get_history_store),
+) -> AutoTaskDetailResponse:
+    task = store.get(task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="task not found")
+
+    for run in task.runs:
+        if run.state == "running" or not run.history_id or run.history_missing:
+            continue
+        battle_compare = history_store.refresh_group_battle_logs(run.history_id, task.battle_log_root)
+        if battle_compare is not None:
+            run.battle_match = battle_compare.all_match
+            if run.history_summary is not None:
+                run.history_summary.battle_match = battle_compare.all_match
+    store.save_task(task)
+    return AutoTaskDetailResponse(task=task, summary=_build_summary(task), runs=list(reversed(task.runs)))

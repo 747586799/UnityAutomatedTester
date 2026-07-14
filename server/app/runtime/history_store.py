@@ -84,6 +84,7 @@ class HistoryStore:
             "failed": failed,
             "state": group_state,
             "created_time": _ts(instances[0].start_time) if instances else "",
+            "end_time": _ts(max((i.end_time for i in instances if i.end_time), default=None)),
             "archived_time": _ts(datetime.now()),
             "instances": instance_summaries,
             "report_compare": report_compare.model_dump(mode="json") if report_compare else None,
@@ -203,12 +204,12 @@ class HistoryStore:
             try:
                 val = float(match.group())
                 if val == 0:
-                    val = 0.0
+                    return "0.0000"
                 return f"{val:.4f}"
             except Exception:
                 return match.group()
 
-        return re.sub(r"\b-?\d+(?:\.\d+)?\b", replacer, text)
+        return re.sub(r"(?<![\w.])-?\d+(?:\.\d+)?(?![\w.])", replacer, text)
 
     def _clean_report_line(self, line: str, id_map: dict[str, str]) -> str:
         line = line.strip()
@@ -256,15 +257,28 @@ class HistoryStore:
                 sha = hashlib.sha256(cleaned_text.encode("utf-8")).hexdigest()
                 reports.append((inst.id, inst.launch_name, sha, len(cleaned_text)))
 
-        if len(reports) < 2:
+        if not reports:
             return None
 
-        # 娴犮儱顦块弫?majority)娑撳搫鐔€閸戝棴绱扮紒鐔活吀閹碘偓閺堝绗夐崥?SHA 閻ㄥ嫬鍤悳鐗堫偧閺佸府绱濋柅澶婂毉閻滅増娓舵径姘辨畱
+        # 单实例：自身作为 baseline，始终一致
+        if len(reports) == 1:
+            rid, rname, rsha, rlen = reports[0]
+            return ReportCompareResult(
+                baseline_instance_id=rid,
+                same=True,
+                items=[ReportCompareItem(
+                    instance_id=rid, launch_name=rname,
+                    sha256=rsha, same_as_baseline=True,
+                    report_length=rlen,
+                )],
+            )
+
+        # 基于多数(majority)原则确定基线：取出现次数最多的 SHA 对应的实例作为 baseline
         sha_counts = Counter(r[2] for r in reports)
         majority_sha = sha_counts.most_common(1)[0][0]
         all_same = len(sha_counts) == 1
 
-        # 閹电偓瀚㈤張?majority SHA 閻ㄥ嫮顑囨稉鈧稉顏勭杽娓氬缍旀稉?baseline
+        # 取第一个 majority SHA 的实例作为 baseline
         baseline_id = next(r[0] for r in reports if r[2] == majority_sha)
 
         items = [
@@ -284,15 +298,66 @@ class HistoryStore:
             items=items,
         )
 
+    def _compare_archived_group_reports(self, instances_dir: Path, instances_data: list[dict[str, Any]]) -> ReportCompareResult | None:
+        reports: list[tuple[str, str | None, str, int]] = []
+        for inst in instances_data:
+            inst_id = inst.get("id")
+            if not inst_id:
+                continue
+            report_file = instances_dir / inst_id / "report.txt"
+            if report_file.exists():
+                text = report_file.read_text(encoding="utf-8", errors="replace")
+                cleaned_text = self._clean_report_text(text)
+                sha = hashlib.sha256(cleaned_text.encode("utf-8")).hexdigest()
+                reports.append((inst_id, inst.get("launch_name"), sha, len(cleaned_text)))
+
+        if not reports:
+            return None
+
+        if len(reports) == 1:
+            rid, rname, rsha, rlen = reports[0]
+            return ReportCompareResult(
+                baseline_instance_id=rid,
+                same=True,
+                items=[ReportCompareItem(
+                    instance_id=rid,
+                    launch_name=rname,
+                    sha256=rsha,
+                    same_as_baseline=True,
+                    report_length=rlen,
+                )],
+            )
+
+        sha_counts = Counter(r[2] for r in reports)
+        majority_sha = sha_counts.most_common(1)[0][0]
+        baseline_id = next(r[0] for r in reports if r[2] == majority_sha)
+        return ReportCompareResult(
+            baseline_instance_id=baseline_id,
+            same=len(sha_counts) == 1,
+            items=[
+                ReportCompareItem(
+                    instance_id=rid,
+                    launch_name=rname,
+                    sha256=rsha,
+                    same_as_baseline=rsha == majority_sha,
+                    report_length=report_length,
+                )
+                for rid, rname, rsha, report_length in reports
+            ],
+        )
+
     def _extract_room_id(self, report_text: str) -> str | None:
         m = re.search(r"RoomId:([0-9A-Fa-f]+)", report_text)
         return m.group(1) if m else None
 
     def _find_battle_log(self, room_id: str, start_time: datetime) -> Path | None:
-        if self.battle_log_root is None:
+        return self._find_battle_log_in_root(room_id, start_time, self.battle_log_root)
+
+    def _find_battle_log_in_root(self, room_id: str, start_time: datetime, battle_log_root: Path | None) -> Path | None:
+        if battle_log_root is None:
             return None
         date_str = start_time.strftime("%y-%m-%d")
-        log_path = self.battle_log_root / date_str / f"BattleLog_{room_id}.log"
+        log_path = battle_log_root / date_str / f"BattleLog_{room_id}.log"
         return log_path if log_path.exists() else None
 
     def _compare_battle_logs(self, instances_dir: Path, instances: list[UnityInstance]) -> BattleCompareResult | None:
@@ -365,6 +430,71 @@ class HistoryStore:
             items=items,
         )
 
+    def refresh_group_battle_logs(self, group_history_id: str, battle_log_root: str | None = None) -> BattleCompareResult | None:
+        group_dir = self.groups_root / group_history_id
+        group_file = group_dir / "group.json"
+        if not group_file.exists():
+            return None
+
+        root = Path(battle_log_root) if battle_log_root else self.battle_log_root
+        if root is None:
+            return None
+
+        data = json.loads(group_file.read_text(encoding="utf-8"))
+        instances_dir = group_dir / "instances"
+        battle_log_text: str | None = None
+
+        for inst_data in data.get("instances", []):
+            inst_id = inst_data.get("id")
+            if not inst_id:
+                continue
+            inst_dir = instances_dir / inst_id
+            archive_file = inst_dir / "archive.json"
+            report_file = inst_dir / "report.txt"
+            if not archive_file.exists() or not report_file.exists():
+                continue
+
+            archive = json.loads(archive_file.read_text(encoding="utf-8"))
+            report = report_file.read_text(encoding="utf-8", errors="replace")
+            room_id = archive.get("battle_room_id") or self._extract_room_id(report)
+            start_time_text = archive.get("start_time") or inst_data.get("start_time")
+            if not room_id or not start_time_text:
+                continue
+            start_time = datetime.fromisoformat(str(start_time_text))
+            battle_log_path = self._find_battle_log_in_root(room_id, start_time, root)
+            if battle_log_path is None:
+                archive["battle_room_id"] = room_id
+                archive["battle_log_found"] = False
+                archive["battle_log_sha"] = None
+            else:
+                battle_log_text = battle_log_path.read_text(encoding="utf-8", errors="replace")
+                cleaned_battle = self._clean_report_text(battle_log_text)
+                archive["battle_room_id"] = room_id
+                archive["battle_log_found"] = True
+                archive["battle_log_sha"] = hashlib.sha256(cleaned_battle.encode("utf-8")).hexdigest()
+            archive_file.write_text(json.dumps(archive, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+
+        if battle_log_text is not None:
+            (instances_dir / "_battle_log.txt").write_text(battle_log_text, encoding="utf-8", newline="")
+
+        previous_root = self.battle_log_root
+        self.battle_log_root = root
+        try:
+            battle_compare = self._compare_battle_logs(instances_dir, [UnityInstance.model_validate({
+                "id": inst.get("id"),
+                "launch_name": inst.get("launch_name"),
+                "project_path": "",
+                "unity_executable_path": "",
+                "execute_method": "",
+            }) for inst in data.get("instances", []) if inst.get("id")])
+        finally:
+            self.battle_log_root = previous_root
+
+        data["battle_compare"] = battle_compare.model_dump(mode="json") if battle_compare else None
+        group_file.write_text(json.dumps(data, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+        self._history_cache["_all_ts"] = 0.0
+        return battle_compare
+
     def list_group_history(self, page: int = 1, page_size: int = 20) -> tuple[list[UnityGroupHistorySummary], int]:
         results = self._load_all_group_history()
         total = len(results)
@@ -375,8 +505,9 @@ class HistoryStore:
     def _load_all_group_history(self) -> list[UnityGroupHistorySummary]:
         import time
         now = time.time()
-        if now - self._history_cache.get("_all_ts", 0) < 5:
-            return self._history_cache.get("_all", [])
+        cached = self._history_cache.get("_all", [])
+        if now - self._history_cache.get("_all_ts", 0) < 5 and all(item.start_time and item.end_time for item in cached):
+            return cached
         results: list[UnityGroupHistorySummary] = []
         for entry in self.groups_root.iterdir():
             if not entry.is_dir():
@@ -388,6 +519,15 @@ class HistoryStore:
                 data = json.loads(group_file.read_text(encoding="utf-8"))
                 rc = data.get("report_compare")
                 bc = data.get("battle_compare")
+                instances_data = data.get("instances", [])
+                start_times = [item.get("start_time") for item in instances_data if item.get("start_time")]
+                end_times = [item.get("end_time") for item in instances_data if item.get("end_time")]
+                start_time = data.get("start_time") or data.get("created_time") or (min(start_times) if start_times else "")
+                end_time = data.get("end_time") or (max(end_times) if end_times else data.get("archived_time", ""))
+                if data.get("start_time") != start_time or data.get("end_time") != end_time:
+                    data["start_time"] = start_time
+                    data["end_time"] = end_time
+                    group_file.write_text(json.dumps(data, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
                 results.append(UnityGroupHistorySummary(
                     history_id=entry.name,
                     group_id=data.get("group_id", entry.name),
@@ -396,6 +536,8 @@ class HistoryStore:
                     completed=data.get("completed", 0),
                     failed=data.get("failed", 0),
                     state=data.get("state", ""),
+                    start_time=start_time,
+                    end_time=end_time,
                     archived_time=data.get("archived_time", ""),
                     report_same=rc.get("same") if rc else None,
                     battle_match=bc.get("all_match") if bc else None,
@@ -475,9 +617,17 @@ class HistoryStore:
 
             rc_data = data.get("report_compare")
             report_compare = ReportCompareResult(**rc_data) if rc_data else None
+            if report_compare is None:
+                report_compare = self._compare_archived_group_reports(group_dir / "instances", data.get("instances", []))
 
             bc_data = data.get("battle_compare")
             battle_compare = BattleCompareResult(**bc_data) if bc_data else None
+
+            instances_data = data.get("instances", [])
+            start_times = [item.get("start_time") for item in instances_data if item.get("start_time")]
+            end_times = [item.get("end_time") for item in instances_data if item.get("end_time")]
+            start_time = data.get("start_time") or data.get("created_time") or (min(start_times) if start_times else "")
+            end_time = data.get("end_time") or (max(end_times) if end_times else data.get("archived_time", ""))
 
             # Read battle log text if archived
             battle_log_file = group_dir / "instances" / "_battle_log.txt"
@@ -496,9 +646,11 @@ class HistoryStore:
                     completed=data.get("completed", 0),
                     failed=data.get("failed", 0),
                     state=data.get("state", ""),
+                    start_time=start_time,
+                    end_time=end_time,
                     archived_time=data.get("archived_time", ""),
-                    report_same=rc_data.get("same") if rc_data else None,
-                    battle_match=bc_data.get("all_match") if bc_data else None,
+                    report_same=report_compare.same if report_compare else None,
+                    battle_match=battle_compare.all_match if battle_compare else None,
                 ),
                 instances=instance_summaries,
                 report_compare=report_compare,

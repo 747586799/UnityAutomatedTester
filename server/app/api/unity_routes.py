@@ -5,6 +5,7 @@ from app.core.manager import UnityInstanceManager
 from app.core.models import (
     ManualUnityInstanceRequest,
     PaginatedResponse,
+    BattleCompareResult,
     ReportCompareResult,
     StopUnityRequest,
     StopUnityResponse,
@@ -15,7 +16,8 @@ from app.core.models import (
     UnityInstanceGroupSummary,
     UnityLaunchGroupRequest,
 )
-from app.dependencies import get_history_store, get_launch_config_store, get_unity_manager
+from app.automation.store import AutoTaskStore
+from app.dependencies import get_auto_task_store, get_history_store, get_launch_config_store, get_unity_manager
 from app.protocol.messages import SendMessageRequest, SendMessageResponse
 from app.runtime.history_store import HistoryStore
 from app.runtime.launch_config import LaunchConfigStore
@@ -125,6 +127,38 @@ def get_group_report_compare(
     if record is None:
         raise HTTPException(status_code=404, detail="Group history record not found")
     return record.report_compare
+
+
+@router.post("/history/groups/{group_history_id}/refresh-battle-log", response_model=BattleCompareResult | None)
+def refresh_group_battle_log(
+    group_history_id: str,
+    history_store: HistoryStore = Depends(get_history_store),
+    auto_task_store: AutoTaskStore = Depends(get_auto_task_store),
+) -> BattleCompareResult | None:
+    record = history_store.get_group_history(group_history_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Group history record not found")
+    battle_compare = history_store.refresh_group_battle_logs(group_history_id)
+    if battle_compare is not None:
+        updated_tasks = False
+        refreshed_record = history_store.get_group_history(group_history_id)
+        for task in auto_task_store.list():
+            task_updated = False
+            for run in task.runs:
+                if run.history_id != group_history_id:
+                    continue
+                run.battle_match = battle_compare.all_match
+                if refreshed_record is not None:
+                    run.history_summary = refreshed_record.summary
+                elif run.history_summary is not None:
+                    run.history_summary.battle_match = battle_compare.all_match
+                task_updated = True
+            if task_updated:
+                auto_task_store.save_task(task)
+                updated_tasks = True
+        if updated_tasks:
+            auto_task_store.save()
+    return battle_compare
 
 
 @router.get(
