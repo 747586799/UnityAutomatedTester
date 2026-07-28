@@ -443,7 +443,8 @@ function closeAutomationDetail() {
 async function refreshAutomationBattleLogs(taskId, btn) {
   try {
     setLoading(btn, true);
-    const data = await apiPost(`/api/automation/tasks/${taskId}/refresh-battle-logs`, {});
+    await apiPost(`/api/automation/tasks/${taskId}/refresh-battle-logs`, {});
+    const data = await apiGet('/api/automation/tasks/' + taskId);
     renderAutomationDetail(data);
     showToast('已重新获取所有已完成战斗服日志', 'success');
   } catch (e) {
@@ -1236,7 +1237,9 @@ function renderGroupHistoryDetail() {
     }
     const matchText = bc.all_match ? '全部一致' : '存在差异';
     const matchClass = bc.all_match ? 'report-same-yes' : 'report-same-no';
-    resultHtml += '<div style="margin-bottom:10px"><span class="report-same ' + matchClass + '">' + matchText + '</span></div>';
+    resultHtml += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">';
+    resultHtml += '<span class="report-same ' + matchClass + '">' + matchText + '</span>';
+    resultHtml += '</div>';
     resultHtml += '<table class="compare-instances-table" style="margin-top:4px"><thead><tr><th>实例</th><th>Report SHA</th><th>Battle SHA</th><th>一致</th></tr></thead><tbody>';
     for (const item of bc.items) {
       const statusClass = item.match ? 'report-same-yes' : 'report-same-no';
@@ -1371,4 +1374,220 @@ function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+/* ======== 文件对比 ======== */
+var _fileLeftContent = null;
+var _fileLeftName = '';
+var _fileRightContent = null;
+var _fileRightName = '';
+
+function onFileSelected(side, inputEl) {
+  var file = inputEl.files[0];
+  if (!file) return;
+
+  var inp = document.getElementById('inp-file-' + side);
+  inp.value = file.name;
+
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var content = e.target.result;
+    if (side === 'left') {
+      _fileLeftContent = content;
+      _fileLeftName = file.name;
+    } else {
+      _fileRightContent = content;
+      _fileRightName = file.name;
+    }
+  };
+  reader.onerror = function() {
+    inp.value = '';
+    showToast('读取文件失败: ' + file.name, 'error');
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+// Allow re-selecting the same file
+function resetFileInput(side) {
+  var el = document.getElementById('file-input-' + side);
+  el.value = '';
+}
+
+// ── Log cleaning logic (rules fetched from server) ──
+var _diffSkipPatterns = null;
+var _diffPrefixReplacements = null;
+var _diffRulesPromise = null;
+
+function _diffFetchRules() {
+  if (_diffRulesPromise) return _diffRulesPromise;
+  _diffRulesPromise = fetch('/api/cleaning-rules')
+    .then(function(res) { return res.json(); })
+    .then(function(rules) {
+      _diffSkipPatterns = rules.skip_patterns || [];
+      _diffPrefixReplacements = rules.prefix_replacements || [];
+    })
+    .catch(function() {
+      // Fallback
+      _diffSkipPatterns = ['SingleMessageQueueSys ReadFrame:\\s*\\d+', 'ClientLog:'];
+      _diffPrefixReplacements = [['ServerGamePlayModules.', ''], ['UnityHotfix.', ''], ['GameplayModules.', '']];
+    });
+  return _diffRulesPromise;
+}
+
+function _diffShouldSkipLine(rawLine) {
+  for (var i = 0; i < _diffSkipPatterns.length; i++) {
+    if (new RegExp(_diffSkipPatterns[i]).test(rawLine)) return true;
+  }
+  return false;
+}
+
+function _diffCleanPrefixes(line) {
+  for (var i = 0; i < _diffPrefixReplacements.length; i++) {
+    line = line.split(_diffPrefixReplacements[i][0]).join(_diffPrefixReplacements[i][1]);
+  }
+  return line;
+}
+
+function _diffFormatNumbers(text) {
+  return text.replace(/(?<![\w.])-?\d+(?:\.\d+)?(?![\w.])/g, function(m) {
+    var val = parseFloat(m);
+    if (!isNaN(val)) {
+      if (Object.is(val, -0) || val === 0) return '0.0000';
+      return val.toFixed(4);
+    }
+    return m;
+  });
+}
+
+function _diffCleanLine(line, cleanId, idMap) {
+  if (!line) return '';
+  line = line.trim();
+  if (!line) return '';
+
+  line = line.replace(/^\[BattleLog_[^\]]+\]\s*/, '');
+  if (/\[Frame:\]/.test(line)) {
+    line = line.split('[Frame:]')[1] || '';
+  } else {
+    line = line.replace(/^\d{4}-\d{2}-\d{2}.*?\[[A-Z]+\]\s*/, '');
+  }
+  line = _diffCleanPrefixes(line);
+
+  if (cleanId) {
+    line = line.replace(/Identify:(\d+)/g, function(match, originalId) {
+      if (!(originalId in idMap)) {
+        idMap[originalId] = Object.keys(idMap).length + 1;
+      }
+      return 'Identify:__ID_' + idMap[originalId] + '__';
+    });
+  }
+  line = line.replace(/Version:\d+/g, 'Version:ID');
+  line = _diffFormatNumbers(line);
+
+  if (cleanId) {
+    line = line.replace(/Identify:__ID_(\d+)__/g, 'Identify:$1');
+  }
+  return line.trim();
+}
+
+function _diffProcessReport(reportText, cleanId, cleanContent) {
+  var idMap = {};
+  var rawLines = [];
+  var cleanedLines = [];
+  var lines = reportText.split('\n');
+  for (var i = 0; i < lines.length; i++) {
+    var raw = lines[i];
+    if (cleanContent && _diffShouldSkipLine(raw)) continue;
+    var clean = cleanContent ? _diffCleanLine(raw, cleanId, idMap) : raw;
+    rawLines.push(raw);
+    cleanedLines.push(clean);
+  }
+  return { raw: rawLines, cleaned: cleanedLines };
+}
+
+function _diffCompute(linesBase, linesCmp) {
+  var maxLen = Math.max(linesBase.length, linesCmp.length);
+  var result = [];
+  for (var i = 0; i < maxLen; i++) {
+    var baseLine = i < linesBase.length ? linesBase[i] : null;
+    var cmpLine = i < linesCmp.length ? linesCmp[i] : null;
+    if (baseLine === cmpLine) {
+      result.push({ type: 'same', leftNum: i + 1, rightNum: i + 1, left: baseLine, right: cmpLine });
+    } else if (baseLine !== null && cmpLine === null) {
+      result.push({ type: 'removed', leftNum: i + 1, rightNum: null, left: baseLine, right: '' });
+    } else if (baseLine === null && cmpLine !== null) {
+      result.push({ type: 'added', leftNum: null, rightNum: i + 1, left: '', right: cmpLine });
+    } else {
+      result.push({ type: 'removed', leftNum: i + 1, rightNum: null, left: baseLine, right: '' });
+      result.push({ type: 'added', leftNum: null, rightNum: i + 1, left: '', right: cmpLine });
+    }
+  }
+  return result;
+}
+
+async function runFileDiff() {
+  var leftName = document.getElementById('inp-file-left').value.trim();
+  var rightName = document.getElementById('inp-file-right').value.trim();
+  var errorEl = document.getElementById('filediff-error');
+  var resultEl = document.getElementById('filediff-result');
+
+  errorEl.hidden = true;
+  resultEl.style.display = 'none';
+
+  if (!leftName || !rightName) {
+    errorEl.textContent = '请先选择两个文件';
+    errorEl.hidden = false;
+    return;
+  }
+  if (!_fileLeftContent || !_fileRightContent) {
+    errorEl.textContent = '文件内容尚未加载完成，请稍后重试';
+    errorEl.hidden = false;
+    return;
+  }
+
+  var cleanId = document.getElementById('chk-clean-id').checked;
+  var cleanContent = document.getElementById('chk-clean-content').checked;
+
+  try {
+    // Ensure cleaning rules are loaded
+    if (!_diffSkipPatterns) await _diffFetchRules();
+    var leftProc = _diffProcessReport(_fileLeftContent, cleanId, cleanContent);
+    var rightProc = _diffProcessReport(_fileRightContent, cleanId, cleanContent);
+    var diff = _diffCompute(leftProc.cleaned, rightProc.cleaned);
+
+    var addedCount = 0, removedCount = 0, sameCount = 0;
+    for (var i = 0; i < diff.length; i++) {
+      if (diff[i].type === 'same') sameCount++;
+      else if (diff[i].type === 'removed') removedCount++;
+      else if (diff[i].type === 'added') addedCount++;
+    }
+    var isSame = addedCount === 0 && removedCount === 0;
+
+    var summaryHtml = '<span style="font-weight:700;color:var(--color-primary);margin-right:6px">' +
+      escapeHtml(_fileLeftName) + '</span>vs<span style="font-weight:700;color:var(--color-primary);margin-left:6px">' +
+      escapeHtml(_fileRightName) + '</span>' +
+      '&nbsp;&nbsp;<span style="font-size:12px;padding:3px 8px;border-radius:999px;font-weight:700;' +
+      (isSame ? 'background:#dcfce7;color:#166534' : 'background:#fee2e2;color:#991b1b') + '">' +
+      (isSame ? '完全相同' : '存在差异') + '</span>' +
+      '&nbsp;&nbsp;<span style="color:var(--color-text-muted);font-size:12px">' +
+      '相同: ' + sameCount + ' | 新增: <span style="color:#166534">' + addedCount + '</span> | 删除: <span style="color:#991b1b">' + removedCount + '</span>' + '</span>';
+
+    document.getElementById('filediff-summary').innerHTML = summaryHtml;
+
+    var tableRows = '';
+    for (var j = 0; j < diff.length; j++) {
+      var row = diff[j];
+      var typeCls = 'diff-' + row.type;
+      tableRows += '<tr class="' + typeCls + '">' +
+        '<td class="diff-gutter">' + (row.leftNum !== null ? row.leftNum : '') + '</td>' +
+        '<td class="diff-line-left">' + escapeHtml(row.left || '') + '</td>' +
+        '<td class="diff-gutter">' + (row.rightNum !== null ? row.rightNum : '') + '</td>' +
+        '<td class="diff-line-right">' + escapeHtml(row.right || '') + '</td>' +
+        '</tr>';
+    }
+    document.getElementById('filediff-body').innerHTML = tableRows;
+    resultEl.style.display = 'block';
+  } catch (e) {
+    errorEl.textContent = '对比失败: ' + e.message;
+    errorEl.hidden = false;
+  }
 }

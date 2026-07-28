@@ -265,20 +265,42 @@ function escapeHtml(str) {
   return d.innerHTML;
 }
 
-// ── Cleaning logic (port of the Python script) ──
+// ── Cleaning logic (rules fetched from server) ──
+var _skipPatterns = [];
+var _prefixReplacements = [];
+var _rulesReady = false;
+var _rulesPromise = null;
 
-/** Check if a line should be skipped (noise). */
+function fetchCleaningRules() {
+  if (_rulesPromise) return _rulesPromise;
+  _rulesPromise = fetch('/api/cleaning-rules')
+    .then(function(res) { return res.json(); })
+    .then(function(rules) {
+      _skipPatterns = rules.skip_patterns || [];
+      _prefixReplacements = rules.prefix_replacements || [];
+      _rulesReady = true;
+    })
+    .catch(function() {
+      // Fallback: hardcoded defaults so page still works if API fails
+      _skipPatterns = ['SingleMessageQueueSys ReadFrame:\\s*\\d+', 'ClientLog:'];
+      _prefixReplacements = [['ServerGamePlayModules.', ''], ['UnityHotfix.', ''], ['GameplayModules.', '']];
+      _rulesReady = true;
+    });
+  return _rulesPromise;
+}
+
 function shouldSkipLine(rawLine) {
-  if (/SingleMessageQueueSys ReadFrame:\s*\d+/.test(rawLine)) return true;
+  for (var i = 0; i < _skipPatterns.length; i++) {
+    if (new RegExp(_skipPatterns[i]).test(rawLine)) return true;
+  }
   return false;
 }
 
-/** Remove common namespace prefixes. */
 function cleanCommonPrefixes(line) {
-  return line
-    .replace(/ServerGamePlayModules\./g, '')
-    .replace(/UnityHotfix\./g, '')
-    .replace(/GameplayModules\./g, '');
+  for (var i = 0; i < _prefixReplacements.length; i++) {
+    line = line.split(_prefixReplacements[i][0]).join(_prefixReplacements[i][1]);
+  }
+  return line;
 }
 
 /** Format numbers to 4 decimal places. */
@@ -584,7 +606,9 @@ async function loadDiff() {
   _currentRightIdx = Math.min(rightIdx, _instanceIds.length - 1);
 
   try {
+    // Fetch cleaning rules and group data in parallel
     var res = await fetch('/api/unity/history/groups/' + historyId);
+    await fetchCleaningRules();
     if (!res.ok) throw new Error(await res.text());
     var data = await res.json();
     _allReports = data.instance_reports || {};

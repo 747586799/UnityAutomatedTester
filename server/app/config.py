@@ -1,8 +1,14 @@
 import os
+import sys
 from functools import lru_cache
 from pathlib import Path
 
 from pydantic import BaseModel
+
+
+def _default_runtime_root() -> Path:
+    base = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path.cwd()
+    return base / "runtime"
 
 
 class Settings(BaseModel):
@@ -25,7 +31,7 @@ def get_settings() -> Settings:
     return Settings(
         host=os.getenv("UAT_HOST", "127.0.0.1"),
         port=int(os.getenv("UAT_PORT", "5100")),
-        runtime_root=Path(os.getenv("UAT_RUNTIME_ROOT", "../runtime")),
+        runtime_root=Path(os.getenv("UAT_RUNTIME_ROOT", str(_default_runtime_root()))),
         default_unity_executable=os.getenv("UAT_DEFAULT_UNITY_EXECUTABLE"),
         connection_timeout_seconds=int(os.getenv("UAT_CONNECTION_TIMEOUT_SECONDS", "60")),
         execution_timeout_seconds=int(os.getenv("UAT_EXECUTION_TIMEOUT_SECONDS", "1800")),

@@ -136,12 +136,12 @@ def stop_task(
     return scheduler.stop_task(task)
 
 
-@router.post("/tasks/{task_id}/refresh-battle-logs", response_model=AutoTaskDetailResponse)
+@router.post("/tasks/{task_id}/refresh-battle-logs")
 def refresh_task_battle_logs(
     task_id: str,
     store: AutoTaskStore = Depends(get_auto_task_store),
     history_store: HistoryStore = Depends(get_history_store),
-) -> AutoTaskDetailResponse:
+):
     task = store.get(task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="task not found")
@@ -157,4 +157,4 @@ def refresh_task_battle_logs(
             if run.history_summary is not None:
                 run.history_summary.battle_match = battle_compare.all_match
     store.save_task(task)
-    return AutoTaskDetailResponse(task=task, summary=_build_summary(task), runs=list(reversed(task.runs)))
+    return {"success": True}

@@ -428,7 +428,7 @@ python build.py --out-dir ./my-dist
 Server：
 
 ```powershell
-.\dist\UnityAutomatedTester_Server_v0.1.0.exe --host 127.0.0.1 --port 5100
+.\dist\UnityAutomatedTester_Server_v0.1.0.exe --host 192.168.1.15 --port 5100
 ```
 
 Agent：

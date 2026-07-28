@@ -7,8 +7,10 @@ from fastapi.staticfiles import StaticFiles
 
 from app.agents.routes import router as agents_router
 from app.agents.websocket import router as agent_socket_router
+from app.api.file_routes import router as file_router
 from app.api.unity_routes import router as unity_router
 from app.automation.routes import router as automation_router
+from app.cleaning_rules import CleaningRulesResponse
 from app.dependencies import get_auto_task_scheduler
 from app.websocket.unity_socket import router as unity_socket_router
 
@@ -33,8 +35,14 @@ def create_app() -> FastAPI:
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
+    @app.get("/api/cleaning-rules", response_model=CleaningRulesResponse)
+    def get_cleaning_rules() -> CleaningRulesResponse:
+        """返回日志清洗规则，供 JS 前端动态获取"""
+        return CleaningRulesResponse()
+
     app.include_router(agents_router)
     app.include_router(unity_router)
+    app.include_router(file_router)
     app.include_router(automation_router)
     app.include_router(agent_socket_router)
     app.include_router(unity_socket_router)

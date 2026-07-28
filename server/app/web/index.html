@@ -105,7 +105,7 @@
     </section>
 
     <section class="tab-panel" id="panel-tools" role="tabpanel" aria-labelledby="tab-tools" hidden>
-      <div class="panel-note">用于 Unity 已打开时，将外部实例手动注册到控制台。</div>
+      <div class="panel-note">手动注册实例，以及对比两个文件的内容差异。</div>
       <section class="card" aria-labelledby="manual-heading">
         <h3 id="manual-heading">手动注册</h3>
         <div class="form-group">
@@ -117,6 +117,55 @@
         </div>
         <div id="manual-error" class="error-box" role="alert" aria-live="assertive" hidden></div>
       </section>
+
+      <section class="card" aria-labelledby="filediff-heading" style="margin-top:20px">
+        <h3 id="filediff-heading">文件对比</h3>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <div class="form-group" style="flex:1;min-width:260px">
+            <label>文件 A（基准）</label>
+            <div style="display:flex;gap:6px">
+              <input type="text" id="inp-file-left" readonly autocomplete="off" spellcheck="false" placeholder="点击浏览选择文件" style="flex:1;cursor:pointer;background:var(--color-surface-soft)" onclick="document.getElementById('file-input-left').click()">
+              <input type="file" id="file-input-left" style="display:none" onchange="onFileSelected('left', this)">
+              <button type="button" class="btn-sm" onclick="document.getElementById('file-input-left').click()">浏览</button>
+            </div>
+          </div>
+          <div class="form-group" style="flex:1;min-width:260px">
+            <label>文件 B（对比）</label>
+            <div style="display:flex;gap:6px">
+              <input type="text" id="inp-file-right" readonly autocomplete="off" spellcheck="false" placeholder="点击浏览选择文件" style="flex:1;cursor:pointer;background:var(--color-surface-soft)" onclick="document.getElementById('file-input-right').click()">
+              <input type="file" id="file-input-right" style="display:none" onchange="onFileSelected('right', this)">
+              <button type="button" class="btn-sm" onclick="document.getElementById('file-input-right').click()">浏览</button>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:16px;align-items:center;margin-top:10px">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="chk-clean-id" checked> 归一化动态 ID
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="chk-clean-content" checked> 清洗日志噪音
+          </label>
+        </div>
+        <div class="form-actions" style="margin-top:10px">
+          <button type="button" class="btn-primary" onclick="runFileDiff()">对比</button>
+        </div>
+        <div id="filediff-error" class="error-box" role="alert" aria-live="assertive" hidden></div>
+        <div id="filediff-result" style="margin-top:12px;display:none">
+          <div id="filediff-summary" style="font-size:13px;margin-bottom:8px"></div>
+          <div style="overflow-x:auto">
+            <table class="diff-table" style="width:100%;border-collapse:collapse;table-layout:fixed">
+              <thead>
+                <tr>
+                  <th class="diff-label" style="width:50%">文件 A（基准）</th>
+                  <th class="diff-label" style="width:50%">文件 B（对比）</th>
+                </tr>
+              </thead>
+              <tbody id="filediff-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
     </section>
 
     <section class="tab-panel" id="panel-history" role="tabpanel" aria-labelledby="tab-history" hidden>

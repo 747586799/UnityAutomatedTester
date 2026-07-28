@@ -3,6 +3,8 @@ import json
 import logging
 import re
 import shutil
+
+from app.cleaning_rules import compile_skip_patterns, should_skip_line, clean_common_prefixes
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
@@ -31,6 +33,7 @@ class HistoryStore:
         self.history_root.mkdir(parents=True, exist_ok=True)
         self.groups_root.mkdir(parents=True, exist_ok=True)
         self._history_cache: dict[str, list[UnityGroupHistorySummary]] = {"_all": [], "_all_ts": 0.0}
+        self._skip_patterns = compile_skip_patterns()
 
     def set_battle_log_root(self, path: str | None) -> None:
         self.battle_log_root = Path(path) if path else None
@@ -191,13 +194,10 @@ class HistoryStore:
                             shutil.copy2(src_file, dst)
 
     def _should_skip_report_line(self, raw_line: str) -> bool:
-        return re.search(r"SingleMessageQueueSys ReadFrame:\s*\d+", raw_line) is not None
+        return should_skip_line(raw_line, self._skip_patterns)
 
     def _clean_common_prefixes(self, line: str) -> str:
-        line = line.replace("ServerGamePlayModules.", "")
-        line = line.replace("UnityHotfix.", "")
-        line = line.replace("GameplayModules.", "")
-        return line
+        return clean_common_prefixes(line)
 
     def _format_numbers_strict(self, text: str) -> str:
         def replacer(match: re.Match[str]) -> str:
