@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#f6f7fb" media="(prefers-color-scheme:light)">
 <meta name="theme-color" content="#080b12" media="(prefers-color-scheme:dark)">
 <title>UnityAutomatedTester</title>
-<link rel="stylesheet" href="styles.css?v=20260714-overlay-zindex">
+<link rel="stylesheet" href="styles.css?v=20260716-file-diff">
 </head>
 <body>
 <a href="#main-content" class="skip-link">跳转到主内容</a>
@@ -138,32 +138,10 @@
             </div>
           </div>
         </div>
-        <div style="display:flex;gap:16px;align-items:center;margin-top:10px">
-          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
-            <input type="checkbox" id="chk-clean-id" checked> 归一化动态 ID
-          </label>
-          <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">
-            <input type="checkbox" id="chk-clean-content" checked> 清洗日志噪音
-          </label>
-        </div>
         <div class="form-actions" style="margin-top:10px">
           <button type="button" class="btn-primary" onclick="runFileDiff()">对比</button>
         </div>
         <div id="filediff-error" class="error-box" role="alert" aria-live="assertive" hidden></div>
-        <div id="filediff-result" style="margin-top:12px;display:none">
-          <div id="filediff-summary" style="font-size:13px;margin-bottom:8px"></div>
-          <div style="overflow-x:auto">
-            <table class="diff-table" style="width:100%;border-collapse:collapse;table-layout:fixed">
-              <thead>
-                <tr>
-                  <th class="diff-label" style="width:50%">文件 A（基准）</th>
-                  <th class="diff-label" style="width:50%">文件 B（对比）</th>
-                </tr>
-              </thead>
-              <tbody id="filediff-body"></tbody>
-            </table>
-          </div>
-        </div>
       </section>
 
     </section>
@@ -341,6 +319,6 @@
   </div>
 </div>
 
-<script src="app.js?v=20260714-keep-auto-detail"></script>
+<script src="app.js?v=20260716-file-diff"></script>
 </body>
 </html>

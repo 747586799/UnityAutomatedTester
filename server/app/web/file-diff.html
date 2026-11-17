@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f6f7fb" media="(prefers-color-scheme:light)">
+<meta name="theme-color" content="#080b12" media="(prefers-color-scheme:dark)">
+<title>文件对比</title>
+<style>
+:root {
+  --color-bg: #f6f7fb;
+  --color-surface: #ffffff;
+  --color-text: #111827;
+  --color-text-secondary: #64748b;
+  --color-text-muted: #94a3b8;
+  --color-border: #e2e8f0;
+  --color-primary: #0f766e;
+  --color-diff-removed-bg: #fee2e2;
+  --color-diff-removed-text: #991b1b;
+  --color-diff-removed-gutter: #fca5a5;
+  --color-diff-added-bg: #dcfce7;
+  --color-diff-added-text: #166534;
+  --color-diff-added-gutter: #86efac;
+  --color-diff-empty-bg: #f1f5f9;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #080b12;
+    --color-surface: #0f172a;
+    --color-text: #e5e7eb;
+    --color-text-secondary: #94a3b8;
+    --color-text-muted: #64748b;
+    --color-border: #1f2937;
+    --color-primary: #2dd4bf;
+    --color-diff-removed-bg: #450a0a;
+    --color-diff-removed-text: #fca5a5;
+    --color-diff-removed-gutter: #991b1b;
+    --color-diff-added-bg: #064e3b;
+    --color-diff-added-text: #86efac;
+    --color-diff-added-gutter: #166534;
+    --color-diff-empty-bg: #1e293b;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: "SF Mono", Consolas, "Liberation Mono", monospace;
+  background: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.6;
+  font-size: 13px;
+}
+.diff-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  font-family: system-ui, -apple-system, sans-serif;
+  flex-wrap: wrap;
+}
+.diff-toolbar {
+  position: sticky;
+  top: 58px;
+  z-index: 19;
+  background: var(--color-surface);
+}
+.diff-labels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-bottom: 1px solid var(--color-border);
+}
+.diff-label {
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 800;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--color-surface);
+  border-bottom: 2px solid transparent;
+}
+.diff-label:first-child {
+  border-right: 1px solid var(--color-border);
+  border-bottom-color: var(--color-diff-removed-gutter);
+}
+.diff-label:last-child {
+  border-bottom-color: var(--color-diff-added-gutter);
+}
+.diff-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.diff-table td {
+  padding: 2px 10px;
+  vertical-align: top;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  line-height: 1.55;
+}
+.gutter {
+  width: 52px;
+  text-align: right;
+  padding: 2px 8px !important;
+  color: var(--color-text-muted);
+  user-select: none;
+  font-size: 11px;
+}
+.diff-header h1 { font-size: 16px; font-weight: 800; }
+.diff-summary {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  font-family: system-ui, -apple-system, sans-serif;
+  flex-wrap: wrap;
+}
+.diff-summary .removed { color: var(--color-diff-removed-text); font-weight: 800; }
+.diff-summary .added { color: var(--color-diff-added-text); font-weight: 800; }
+.diff-summary .unchanged { color: var(--color-text-muted); }
+.line-left, .line-right { width: 50%; }
+.line-left { border-right: 1px solid var(--color-border); }
+tr.same td { background: transparent; }
+tr.same td.gutter { color: var(--color-text-muted); }
+tr.removed td { background: var(--color-diff-removed-bg); }
+tr.removed td.gutter { background: var(--color-diff-removed-gutter); color: var(--color-diff-removed-text); }
+tr.removed td.line-left { color: var(--color-diff-removed-text); }
+tr.removed td.line-right { background: var(--color-diff-empty-bg); }
+tr.added td { background: var(--color-diff-added-bg); }
+tr.added td.gutter { background: var(--color-diff-added-gutter); color: var(--color-diff-added-text); }
+tr.added td.line-right { color: var(--color-diff-added-text); }
+tr.added td.line-left { background: var(--color-diff-empty-bg); }
+
+.mode-bar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 18px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 12px;
+}
+.mode-bar .btn-mode {
+  padding: 3px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+}
+.mode-bar .btn-mode.active {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
+}
+.mode-bar .btn-mode:hover:not(.active) { background: var(--color-border); }
+.btn-sm {
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  font-size: 12px;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+.btn-sm:hover { background: var(--color-border); }
+.btn-primary {
+  padding: 5px 14px;
+  border-radius: 6px;
+  border: none;
+  background: var(--color-primary);
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+.btn-primary:hover { opacity: 0.9; }
+.loading, .error, .no-diff {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 50vh;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+}
+.loading { color: var(--color-text-muted); }
+.error { color: #991b1b; }
+</style>
+</head>
+<body>
+<div id="root">
+  <div class="loading">加载中...</div>
+</div>
+
+<script>
+function escapeHtml(str) {
+  var d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+// ── Cleaning rules (from server) ──
+var _skipPatterns = [];
+var _prefixReplacements = [];
+var _rulesPromise = null;
+
+function fetchCleaningRules() {
+  if (_rulesPromise) return _rulesPromise;
+  _rulesPromise = fetch('/api/cleaning-rules')
+    .then(function(res) { return res.json(); })
+    .then(function(rules) {
+      _skipPatterns = rules.skip_patterns || [];
+      _prefixReplacements = rules.prefix_replacements || [];
+    })
+    .catch(function() {
+      _skipPatterns = ['SingleMessageQueueSys ReadFrame:\\s*\\d+', 'ClientLog:'];
+      _prefixReplacements = [['ServerGamePlayModules.', ''], ['UnityHotfix.', ''], ['GameplayModules.', '']];
+    });
+  return _rulesPromise;
+}
+
+function shouldSkipLine(rawLine) {
+  for (var i = 0; i < _skipPatterns.length; i++) {
+    if (new RegExp(_skipPatterns[i]).test(rawLine)) return true;
+  }
+  return false;
+}
+
+function cleanCommonPrefixes(line) {
+  for (var i = 0; i < _prefixReplacements.length; i++) {
+    line = line.split(_prefixReplacements[i][0]).join(_prefixReplacements[i][1]);
+  }
+  return line;
+}
+
+function formatNumbersStrict(text) {
+  return text.replace(/(?<![\w.])-?\d+(?:\.\d+)?(?![\w.])/g, function(m) {
+    var val = parseFloat(m);
+    if (!isNaN(val)) {
+      if (Object.is(val, -0) || val === 0) return '0.0000';
+      return val.toFixed(4);
+    }
+    return m;
+  });
+}
+
+function cleanLine(line, cleanId, idMap) {
+  if (!line) return '';
+  line = line.trim();
+  if (!line) return '';
+  line = line.replace(/^\[BattleLog_[^\]]+\]\s*/, '');
+  if (/\[Frame:\]/.test(line)) {
+    line = line.split('[Frame:]')[1] || '';
+  } else {
+    line = line.replace(/^\d{4}-\d{2}-\d{2}.*?\[[A-Z]+\]\s*/, '');
+  }
+  line = cleanCommonPrefixes(line);
+  if (cleanId) {
+    line = line.replace(/Identify:(\d+)/g, function(match, originalId) {
+      if (!(originalId in idMap)) {
+        idMap[originalId] = Object.keys(idMap).length + 1;
+      }
+      return 'Identify:__ID_' + idMap[originalId] + '__';
+    });
+  }
+  line = line.replace(/Version:\d+/g, 'Version:ID');
+  line = formatNumbersStrict(line);
+  if (cleanId) {
+    line = line.replace(/Identify:__ID_(\d+)__/g, 'Identify:$1');
+  }
+  return line.trim();
+}
+
+function processReport(text, cleanId, cleanContent) {
+  var idMap = {};
+  var rawLines = [];
+  var cleanedLines = [];
+  var lines = text.split('\n');
+  for (var i = 0; i < lines.length; i++) {
+    var raw = lines[i];
+    if (cleanContent && shouldSkipLine(raw)) continue;
+    var clean = cleanContent ? cleanLine(raw, cleanId, idMap) : raw;
+    rawLines.push(raw);
+    cleanedLines.push(clean);
+  }
+  return { raw: rawLines, cleaned: cleanedLines };
+}
+
+function computeDiff(linesBase, linesCmp) {
+  var maxLen = Math.max(linesBase.length, linesCmp.length);
+  var result = [];
+  for (var i = 0; i < maxLen; i++) {
+    var baseLine = i < linesBase.length ? linesBase[i] : null;
+    var cmpLine = i < linesCmp.length ? linesCmp[i] : null;
+    if (baseLine === cmpLine) {
+      result.push({ type: 'same', leftNum: i + 1, rightNum: i + 1, left: baseLine, right: cmpLine });
+    } else if (baseLine !== null && cmpLine === null) {
+      result.push({ type: 'removed', leftNum: i + 1, rightNum: null, left: baseLine, right: '' });
+    } else if (baseLine === null && cmpLine !== null) {
+      result.push({ type: 'added', leftNum: null, rightNum: i + 1, left: '', right: cmpLine });
+    } else {
+      result.push({ type: 'removed', leftNum: i + 1, rightNum: null, left: baseLine, right: '' });
+      result.push({ type: 'added', leftNum: null, rightNum: i + 1, left: '', right: cmpLine });
+    }
+  }
+  return result;
+}
+
+// ── State ──
+var _leftName = '', _rightName = '';
+var _leftText = '', _rightText = '';
+var _leftProc = null, _rightProc = null;
+var _cleanId = true;
+var _cleanContent = true;
+
+function renderDiff(mode) {
+  mode = mode || 'cleaned';
+  var linesA = mode === 'cleaned' ? _leftProc.cleaned : _leftProc.raw;
+  var linesB = mode === 'cleaned' ? _rightProc.cleaned : _rightProc.raw;
+
+  var diff = computeDiff(linesA, linesB);
+  var addedCount = 0, removedCount = 0, sameCount = 0;
+  for (var i = 0; i < diff.length; i++) {
+    if (diff[i].type === 'same') sameCount++;
+    else if (diff[i].type === 'removed') removedCount++;
+    else if (diff[i].type === 'added') addedCount++;
+  }
+  var isSame = addedCount === 0 && removedCount === 0;
+
+  var tableRows = '';
+  for (var i = 0; i < diff.length; i++) {
+    var row = diff[i];
+    tableRows += '<tr class="' + row.type + '">' +
+      '<td class="gutter">' + (row.leftNum !== null ? row.leftNum : '') + '</td>' +
+      '<td class="line-left">' + (row.left !== null ? escapeHtml(row.left) : '') + '</td>' +
+      '<td class="gutter">' + (row.rightNum !== null ? row.rightNum : '') + '</td>' +
+      '<td class="line-right">' + (row.right !== null ? escapeHtml(row.right) : '') + '</td>' +
+      '</tr>';
+  }
+
+  document.getElementById('root').innerHTML =
+    '<div class="diff-header">' +
+      '<div>' +
+        '<h1>文件对比</h1>' +
+        '<div class="diff-summary">' +
+          '<span style="font-size:13px;padding:4px 10px;border-radius:999px;font-weight:700;' +
+            (isSame ? 'background:#dcfce7;color:#166534' : 'background:#fee2e2;color:#991b1b') + '">' +
+            (isSame ? '完全相同' : '存在差异') + '</span>' +
+          '<span class="unchanged">' + sameCount + ' 行相同</span>' +
+          (removedCount > 0 ? '<span class="removed">-' + removedCount + '</span>' : '') +
+          (addedCount > 0 ? '<span class="added">+' + addedCount + '</span>' : '') +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="diff-toolbar">' +
+      '<div class="mode-bar">' +
+        '<span style="color:var(--color-text-muted)">对比模式:</span>' +
+        '<button class="btn-mode' + (mode === 'cleaned' ? ' active' : '') + '" id="mode-cleaned" onclick="switchMode(\'cleaned\')">清洗后</button>' +
+        '<button class="btn-mode' + (mode === 'raw' ? ' active' : '') + '" id="mode-raw" onclick="switchMode(\'raw\')">原始</button>' +
+        '<span style="margin:0 8px;color:var(--color-border)">|</span>' +
+        '<label style="display:flex;align-items:center;gap:4px;cursor:pointer">' +
+          '<input type="checkbox" id="chk-clean-id" ' + (_cleanId ? 'checked ' : '') + 'onchange="toggleCleanId()">' +
+          '<span>归一化ID</span>' +
+        '</label>' +
+        '<label style="display:flex;align-items:center;gap:4px;cursor:pointer;margin-left:6px">' +
+          '<input type="checkbox" id="chk-clean-content" ' + (_cleanContent ? 'checked ' : '') + 'onchange="toggleCleanContent()">' +
+          '<span>清洗日志</span>' +
+        '</label>' +
+        '<span style="margin:0 8px;color:var(--color-border)">|</span>' +
+        '<button class="btn-mode" onclick="jumpToNextDiff()">下一个差异 &darr;</button>' +
+      '</div>' +
+      '<div class="diff-labels">' +
+        '<div class="diff-label">' + escapeHtml(_leftName) + '</div>' +
+        '<div class="diff-label">' + escapeHtml(_rightName) + '</div>' +
+      '</div>' +
+    '</div>' +
+    '<table class="diff-table">' + tableRows + '</table>';
+}
+
+function switchMode(mode) {
+  renderDiff(mode);
+}
+
+function toggleCleanId() {
+  _cleanId = document.getElementById('chk-clean-id').checked;
+  _leftProc = processReport(_leftText, _cleanId, _cleanContent);
+  _rightProc = processReport(_rightText, _cleanId, _cleanContent);
+  var curMode = document.querySelector('.btn-mode.active');
+  switchMode(curMode ? (curMode.id === 'mode-raw' ? 'raw' : 'cleaned') : 'cleaned');
+}
+
+function toggleCleanContent() {
+  _cleanContent = document.getElementById('chk-clean-content').checked;
+  _leftProc = processReport(_leftText, _cleanId, _cleanContent);
+  _rightProc = processReport(_rightText, _cleanId, _cleanContent);
+  var curMode = document.querySelector('.btn-mode.active');
+  switchMode(curMode ? (curMode.id === 'mode-raw' ? 'raw' : 'cleaned') : 'cleaned');
+}
+
+// ── Jump to next diff ──
+function jumpToNextDiff() {
+  var diffRows = document.querySelectorAll('tr.removed, tr.added');
+  if (diffRows.length === 0) return;
+  var centerLine = window.scrollY + window.innerHeight / 2;
+  var target = null;
+  for (var i = 0; i < diffRows.length; i++) {
+    var rowTop = diffRows[i].getBoundingClientRect().top + window.scrollY;
+    if (rowTop > centerLine + 4) { target = diffRows[i]; break; }
+  }
+  if (!target) target = diffRows[0];
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  var cells = target.querySelectorAll('td');
+  for (var j = 0; j < cells.length; j++) {
+    cells[j].style.outline = '2px solid var(--color-primary)';
+    cells[j].style.outlineOffset = '-1px';
+    setTimeout((function(cell) { return function() { cell.style.outline = ''; }; })(cells[j]), 2000);
+  }
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'n' || e.key === 'N' || e.key === 'j' || e.key === 'J') {
+    var tag = e.target.tagName;
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+    e.preventDefault();
+    jumpToNextDiff();
+  }
+});
+
+// ── Load ──
+var _leftText = '', _rightText = '';
+
+function renderFromTexts(leftName, leftText, rightName, rightText) {
+  _leftName = leftName;
+  _leftText = leftText;
+  _rightName = rightName;
+  _rightText = rightText;
+  _leftProc = processReport(_leftText, _cleanId, _cleanContent);
+  _rightProc = processReport(_rightText, _cleanId, _cleanContent);
+  renderDiff('cleaned');
+}
+
+async function loadFromServer(leftPath, rightPath) {
+  try {
+    var leftRes = await fetch('/api/files/read', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: leftPath }),
+    });
+    var rightRes = await fetch('/api/files/read', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: rightPath }),
+    });
+    if (!leftRes.ok) throw new Error('读取左侧文件失败: ' + (await leftRes.text()));
+    if (!rightRes.ok) throw new Error('读取右侧文件失败: ' + (await rightRes.text()));
+    var leftJson = await leftRes.json();
+    var rightJson = await rightRes.json();
+    renderFromTexts(
+      leftJson.name || leftPath.split(/[\\/]/).pop(),
+      leftJson.content || '',
+      rightJson.name || rightPath.split(/[\\/]/).pop(),
+      rightJson.content || ''
+    );
+  } catch (e) {
+    document.getElementById('root').innerHTML = '<div class="error">读取文件失败: ' + escapeHtml(e.message) + '</div>';
+  }
+}
+
+async function loadDiff() {
+  var params = new URLSearchParams(window.location.search);
+  var leftPath = params.get('left');
+  var rightPath = params.get('right');
+
+  try {
+    await fetchCleaningRules();
+  } catch (e) {
+    document.getElementById('root').innerHTML = '<div class="error">无法获取清洗规则: ' + e.message + '</div>';
+    return;
+  }
+
+  // If opened from the main page (has an opener), request content via postMessage.
+  if (window.opener) {
+    window.opener.postMessage('filediff-ready', '*');
+    var received = false;
+    window.addEventListener('message', function(e) {
+      if (e.origin !== window.location.origin) return;
+      if (e.data && e.data.type === 'filediff-data') {
+        received = true;
+        renderFromTexts(
+          (e.data.left && e.data.left.name) || '文件 A',
+          (e.data.left && e.data.left.content) || '',
+          (e.data.right && e.data.right.name) || '文件 B',
+          (e.data.right && e.data.right.content) || ''
+        );
+      }
+    });
+    // Fallback to URL params if content is not delivered shortly
+    setTimeout(function() {
+      if (!received) {
+        if (leftPath && rightPath) {
+          loadFromServer(leftPath, rightPath);
+        } else {
+          document.getElementById('root').innerHTML =
+            '<div class="error" style="flex-direction:column;gap:8px">' +
+            '<div>未收到文件内容</div>' +
+            '<div style="font-size:13px;color:var(--color-text-muted)">请从工具页选择文件进行对比</div>' +
+            '</div>';
+        }
+      }
+    }, 3000);
+    return;
+  }
+
+  // Opened directly — use URL params.
+  if (leftPath && rightPath) {
+    loadFromServer(leftPath, rightPath);
+  } else {
+    document.getElementById('root').innerHTML =
+      '<div class="error" style="flex-direction:column;gap:8px">' +
+      '<div>缺少文件内容</div>' +
+      '<div style="font-size:13px;color:var(--color-text-muted)">请从工具页选择文件进行对比</div>' +
+      '</div>';
+  }
+}
+
+loadDiff();
+</script>
+</body>
+</html>

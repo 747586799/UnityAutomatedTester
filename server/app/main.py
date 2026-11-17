@@ -31,6 +31,15 @@ def create_app() -> FastAPI:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(message)s")
     app = FastAPI(title="UnityAutomatedTester", version="0.1.0", lifespan=lifespan)
 
+    @app.middleware("http")
+    async def no_cache_for_static(request, call_next):
+        """Web 静态资源不缓存，避免前端更新后浏览器仍使用旧版本"""
+        response = await call_next(request)
+        path = request.url.path
+        if path.endswith(".js") or path.endswith(".css") or path.endswith(".html"):
+            response.headers["Cache-Control"] = "no-store, max-age=0"
+        return response
+
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}
